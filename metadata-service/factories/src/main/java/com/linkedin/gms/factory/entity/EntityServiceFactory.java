@@ -1,36 +1,64 @@
 package com.linkedin.gms.factory.entity;
 
-import com.linkedin.gms.factory.common.TopicConventionFactory;
-import com.linkedin.metadata.dao.producer.EntityKafkaMetadataEventProducer;
+import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
+import com.linkedin.gms.factory.config.ConfigurationProvider;
+import com.linkedin.metadata.dao.producer.KafkaEventProducer;
+import com.linkedin.metadata.dao.throttle.ThrottleSensor;
+import com.linkedin.metadata.entity.AspectDao;
 import com.linkedin.metadata.entity.EntityService;
-import com.linkedin.metadata.entity.ebean.EbeanAspectDao;
-import com.linkedin.metadata.entity.ebean.EbeanEntityService;
-import com.linkedin.metadata.models.registry.EntityRegistry;
-import com.linkedin.mxe.TopicConvention;
+import com.linkedin.metadata.entity.EntityServiceImpl;
+import com.linkedin.metadata.entity.ebean.batch.ChangeItemImpl;
+import java.util.List;
 import javax.annotation.Nonnull;
-import org.apache.kafka.clients.producer.Producer;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.ApplicationContext;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.DependsOn;
 
-
+@Slf4j
 @Configuration
 public class EntityServiceFactory {
-  @Autowired
-  ApplicationContext applicationContext;
+
+  @Value("${EBEAN_MAX_TRANSACTION_RETRY:#{null}}")
+  private Integer _ebeanMaxTransactionRetry;
 
   @Bean(name = "entityService")
-  @DependsOn({"ebeanAspectDao", "kafkaEventProducer", TopicConventionFactory.TOPIC_CONVENTION_BEAN, "entityRegistry"})
+  @DependsOn({"entityAspectDao", "kafkaEventProducer"})
   @Nonnull
-  protected EntityService createInstance() {
+  protected EntityService<ChangeItemImpl> createInstance(
+      @Qualifier("kafkaEventProducer") final KafkaEventProducer eventProducer,
+      @Qualifier("entityAspectDao") final AspectDao aspectDao,
+      @Qualifier("configurationProvider") ConfigurationProvider configurationProvider,
+      @Value("${featureFlags.showBrowseV2}") final boolean enableBrowsePathV2,
+      final List<ThrottleSensor> throttleSensors) {
 
-    final EntityKafkaMetadataEventProducer producer =
-        new EntityKafkaMetadataEventProducer(applicationContext.getBean(Producer.class),
-            applicationContext.getBean(TopicConvention.class));
+    FeatureFlags featureFlags = configurationProvider.getFeatureFlags();
 
-    return new EbeanEntityService(applicationContext.getBean(EbeanAspectDao.class), producer,
-        applicationContext.getBean(EntityRegistry.class));
+    EntityServiceImpl entityService =
+        new EntityServiceImpl(
+            aspectDao,
+            eventProducer,
+            featureFlags.isAlwaysEmitChangeLog(),
+            featureFlags.getPreProcessHooks(),
+            _ebeanMaxTransactionRetry,
+            enableBrowsePathV2);
+
+    if (throttleSensors != null
+        && !throttleSensors.isEmpty()
+        && configurationProvider
+            .getMetadataChangeProposal()
+            .getThrottle()
+            .getComponents()
+            .getApiRequests()
+            .isEnabled()) {
+      log.info("API Requests Throttle Enabled");
+      throttleSensors.forEach(sensor -> sensor.addCallback(entityService::handleThrottleEvent));
+    } else {
+      log.info("API Requests Throttle Disabled");
+    }
+
+    return entityService;
   }
 }

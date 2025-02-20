@@ -1,57 +1,14 @@
 import React from 'react';
-import { Link, useHistory, useLocation } from 'react-router-dom';
-import { Badge, Breadcrumb, Row } from 'antd';
-import styled from 'styled-components';
-import { InfoCircleOutlined, PartitionOutlined } from '@ant-design/icons';
-import { grey, blue } from '@ant-design/colors';
+import { Link } from 'react-router-dom';
+import styled from 'styled-components/macro';
+import { Breadcrumb, Row } from 'antd';
 import { EntityType } from '../../../../../../types.generated';
 import { useEntityRegistry } from '../../../../../useEntityRegistry';
 import { PageRoutes } from '../../../../../../conf/Global';
-import { navigateToLineageUrl } from '../../../../../lineage/utils/navigateToLineageUrl';
-import useIsLineageMode from '../../../../../lineage/utils/useIsLineageMode';
 import { ANTD_GRAY } from '../../../constants';
+import { LineageSelector } from './LineageSelector';
 
-type Props = {
-    type: EntityType;
-    path: Array<string>;
-    upstreams: number;
-    downstreams: number;
-};
-
-const LineageIconGroup = styled.div`
-    width: 180px;
-    display: flex;
-    justify-content: space-between;
-    margin-right: 8px;
-`;
-
-const LineageIcon = styled(PartitionOutlined)`
-    font-size: 20px;
-    vertical-align: middle;
-    padding-right: 6px;
-`;
-
-const DetailIcon = styled(InfoCircleOutlined)`
-    font-size: 20px;
-    vertical-align: middle;
-    padding-right: 6px;
-`;
-
-const IconGroup = styled.div<{ isSelected: boolean; disabled: boolean }>`
-    font-size: 14px;
-    color: ${(props) => {
-        if (props.disabled) {
-            return grey[2];
-        }
-        return !props.isSelected ? 'black' : props.theme.styles['primary-color'] || blue[4];
-    }};
-    &:hover {
-        color: ${(props) => (props.disabled ? grey[2] : props.theme.styles['primary-color'] || blue[4])};
-        cursor: ${(props) => (props.disabled ? 'not-allowed' : 'pointer')};
-    }
-`;
-
-const BrowseRow = styled(Row)`
+export const BrowseRow = styled(Row)`
     padding: 10px 20px;
     background-color: ${(props) => props.theme.styles['body-background']};
     display: flex;
@@ -59,35 +16,25 @@ const BrowseRow = styled(Row)`
     border-bottom: 1px solid ${ANTD_GRAY[4.5]};
 `;
 
-const LineageNavContainer = styled.div`
-    display: inline-flex;
-    line-height: 24px;
-`;
-
-const LineageSummary = styled.div`
-    margin-left: 16px;
-`;
-
-const LineageBadge = styled(Badge)`
-    &&& .ant-badge-count {
-        background-color: ${ANTD_GRAY[1]};
-        color: ${ANTD_GRAY[9]};
-        border: 1px solid ${ANTD_GRAY[5]};
-        font-size: 12px;
-        font-weight: 600;
-        height: 22px;
+export const BreadcrumbItem = styled(Breadcrumb.Item)<{ disabled?: boolean }>`
+    &&& :hover {
+        color: ${(props) => (props.disabled ? ANTD_GRAY[7] : props.theme.styles['primary-color'])};
+        cursor: pointer;
     }
 `;
+
+type Props = {
+    urn: string;
+    type: EntityType;
+    path: Array<string>;
+    breadcrumbLinksEnabled: boolean;
+};
 
 /**
  * Responsible for rendering a clickable browse path view.
  */
-// TODO(Gabe): use this everywhere
-export const ProfileNavBrowsePath = ({ type, path, upstreams, downstreams }: Props): JSX.Element => {
+export const ProfileNavBrowsePath = ({ urn, type, path, breadcrumbLinksEnabled }: Props): JSX.Element => {
     const entityRegistry = useEntityRegistry();
-    const history = useHistory();
-    const location = useLocation();
-    const isLineageMode = useIsLineageMode();
 
     const createPartialPath = (parts: Array<string>) => {
         return parts.join('/');
@@ -96,58 +43,39 @@ export const ProfileNavBrowsePath = ({ type, path, upstreams, downstreams }: Pro
     const baseBrowsePath = `${PageRoutes.BROWSE}/${entityRegistry.getPathName(type)}`;
 
     const pathCrumbs = path.map((part, index) => (
-        <Breadcrumb.Item key={`${part || index}`}>
-            <Link
-                to={
-                    index === path.length - 1 ? '#' : `${baseBrowsePath}/${createPartialPath(path.slice(0, index + 1))}`
-                }
-            >
-                {part}
-            </Link>
-        </Breadcrumb.Item>
+        <BreadcrumbItem key={`${part || index}`} disabled={!breadcrumbLinksEnabled}>
+            {breadcrumbLinksEnabled ? (
+                <Link
+                    to={
+                        index === path.length - 1
+                            ? '#'
+                            : `${baseBrowsePath}/${createPartialPath(path.slice(0, index + 1))}`
+                    }
+                    data-testid={`legacy-browse-path-${part}`}
+                >
+                    {part}
+                </Link>
+            ) : (
+                part
+            )}
+        </BreadcrumbItem>
     ));
-
-    const hasLineage = upstreams > 0 || downstreams > 0;
 
     return (
         <BrowseRow>
             <Breadcrumb style={{ fontSize: '16px' }} separator=">">
-                <Breadcrumb.Item>
-                    <Link to={baseBrowsePath}>{entityRegistry.getCollectionName(type)}</Link>
-                </Breadcrumb.Item>
+                <BreadcrumbItem disabled={!breadcrumbLinksEnabled}>
+                    {breadcrumbLinksEnabled ? (
+                        <Link to={breadcrumbLinksEnabled ? baseBrowsePath : undefined}>
+                            {entityRegistry.getCollectionName(type)}
+                        </Link>
+                    ) : (
+                        entityRegistry.getCollectionName(type)
+                    )}
+                </BreadcrumbItem>
                 {pathCrumbs}
             </Breadcrumb>
-            <LineageNavContainer>
-                <LineageIconGroup>
-                    <IconGroup
-                        disabled={!hasLineage}
-                        isSelected={!isLineageMode}
-                        onClick={() => {
-                            if (hasLineage) {
-                                navigateToLineageUrl({ location, history, isLineageMode: false });
-                            }
-                        }}
-                    >
-                        <DetailIcon />
-                        Details
-                    </IconGroup>
-                    <IconGroup
-                        disabled={!hasLineage}
-                        isSelected={isLineageMode}
-                        onClick={() => {
-                            if (hasLineage) {
-                                navigateToLineageUrl({ location, history, isLineageMode: true });
-                            }
-                        }}
-                    >
-                        <LineageIcon />
-                        Lineage
-                    </IconGroup>
-                </LineageIconGroup>
-                <LineageSummary>
-                    <LineageBadge count={`${upstreams} upstream, ${downstreams} downstream`} />
-                </LineageSummary>
-            </LineageNavContainer>
+            <LineageSelector urn={urn} type={type} />
         </BrowseRow>
     );
 };

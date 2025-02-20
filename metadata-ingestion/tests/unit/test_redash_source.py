@@ -475,7 +475,7 @@ def redash_source() -> RedashSource:
     )
 
 
-def test_get_dashboard_snapshot():
+def test_get_dashboard_snapshot_before_v10():
     expected = DashboardSnapshot(
         urn="urn:li:dashboard:(redash,3)",
         aspects=[
@@ -487,10 +487,9 @@ def test_get_dashboard_snapshot():
                     "urn:li:chart:(redash,9)",
                     "urn:li:chart:(redash,8)",
                 ],
+                datasets=[],
                 lastModified=ChangeAuditStamps(
-                    created=AuditStamp(
-                        time=1628882055288, actor="urn:li:corpuser:unknown"
-                    ),
+                    created=None,
                     lastModified=AuditStamp(
                         time=1628882055288, actor="urn:li:corpuser:unknown"
                     ),
@@ -500,7 +499,39 @@ def test_get_dashboard_snapshot():
             )
         ],
     )
-    result = redash_source()._get_dashboard_snapshot(mock_dashboard_response)
+    result = redash_source()._get_dashboard_snapshot(
+        mock_dashboard_response, "9.0.0-beta"
+    )
+    assert result == expected
+
+
+def test_get_dashboard_snapshot_after_v10():
+    expected = DashboardSnapshot(
+        urn="urn:li:dashboard:(redash,3)",
+        aspects=[
+            DashboardInfoClass(
+                description="My description",
+                title="My Dashboard",
+                charts=[
+                    "urn:li:chart:(redash,10)",
+                    "urn:li:chart:(redash,9)",
+                    "urn:li:chart:(redash,8)",
+                ],
+                datasets=[],
+                lastModified=ChangeAuditStamps(
+                    created=None,
+                    lastModified=AuditStamp(
+                        time=1628882055288, actor="urn:li:corpuser:unknown"
+                    ),
+                ),
+                dashboardUrl="http://localhost:5000/dashboards/3",
+                customProperties={},
+            )
+        ],
+    )
+    result = redash_source()._get_dashboard_snapshot(
+        mock_dashboard_response, "10.0.0-beta"
+    )
     assert result == expected
 
 
@@ -516,9 +547,7 @@ def test_get_known_viz_chart_snapshot(mocked_data_source):
                 title="My Query Chart",
                 description="",
                 lastModified=ChangeAuditStamps(
-                    created=AuditStamp(
-                        time=1628882022544, actor="urn:li:corpuser:unknown"
-                    ),
+                    created=None,
                     lastModified=AuditStamp(
                         time=1628882022544, actor="urn:li:corpuser:unknown"
                     ),
@@ -549,9 +578,7 @@ def test_get_unknown_viz_chart_snapshot(mocked_data_source):
                 title="My Query Sankey",
                 description="",
                 lastModified=ChangeAuditStamps(
-                    created=AuditStamp(
-                        time=1628882009571, actor="urn:li:corpuser:unknown"
-                    ),
+                    created=None,
                     lastModified=AuditStamp(
                         time=1628882009571, actor="urn:li:corpuser:unknown"
                     ),
@@ -676,18 +703,16 @@ def test_get_chart_snapshot_parse_table_names_from_sql(mocked_data_source):
                 title="My Query Chart",
                 description="",
                 lastModified=ChangeAuditStamps(
-                    created=AuditStamp(
-                        time=1628882022544, actor="urn:li:corpuser:unknown"
-                    ),
+                    created=None,
                     lastModified=AuditStamp(
                         time=1628882022544, actor="urn:li:corpuser:unknown"
                     ),
                 ),
                 chartUrl="http://localhost:5000/queries/4#10",
                 inputs=[
-                    "urn:li:dataset:(urn:li:dataPlatform:mysql,Rfam.orders,PROD)",
-                    "urn:li:dataset:(urn:li:dataPlatform:mysql,Rfam.order_items,PROD)",
-                    "urn:li:dataset:(urn:li:dataPlatform:mysql,Rfam.staffs,PROD)",
+                    "urn:li:dataset:(urn:li:dataPlatform:mysql,rfam.order_items,PROD)",
+                    "urn:li:dataset:(urn:li:dataPlatform:mysql,rfam.orders,PROD)",
+                    "urn:li:dataset:(urn:li:dataPlatform:mysql,rfam.staffs,PROD)",
                 ],
                 type="PIE",
             )

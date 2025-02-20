@@ -1,28 +1,29 @@
 import * as faker from 'faker';
-import { DataPlatform, Dataset, EntityType, FabricType, OwnershipType, PlatformType } from '../../../types.generated';
+// import { generatePlatform } from 'generateDataPlatform';
 import kafkaLogo from '../../../images/kafkalogo.png';
 import s3Logo from '../../../images/s3.png';
 import snowflakeLogo from '../../../images/snowflakelogo.png';
 import bigqueryLogo from '../../../images/bigquerylogo.png';
+import { DataPlatform, Dataset, EntityType, FabricType, OwnershipType, PlatformType } from '../../../types.generated';
 import { findUserByUsername } from '../searchResult/userSearchResult';
 
-const platformLogo = {
+export const platformLogo = {
     kafka: kafkaLogo,
     s3: s3Logo,
     snowflake: snowflakeLogo,
     bigquery: bigqueryLogo,
 };
 
-const generatePlatform = ({ platform, urn }): DataPlatform => {
+export const generatePlatform = ({ platform, urn }): DataPlatform => {
     return {
         urn,
         type: EntityType.Dataset,
         name: platform,
-        info: {
+        properties: {
             type: PlatformType.Others,
             datasetNameDelimiter: '',
             logoUrl: platformLogo[platform],
-            __typename: 'DataPlatformInfo',
+            __typename: 'DataPlatformProperties',
         },
         __typename: 'DataPlatform',
     };
@@ -34,11 +35,7 @@ export type DatasetEntityArg = {
     path: string;
 };
 
-export const datasetEntity = ({
-    platform,
-    origin,
-    path,
-}: DatasetEntityArg): Dataset & { previousSchemaMetadata: any } => {
+export const datasetEntity = ({ platform, origin, path }: DatasetEntityArg): Dataset => {
     const name = `${path}.${faker.company.bsNoun()}_${faker.company.bsNoun()}`;
     const description = `${faker.commerce.productDescription()}`;
     const datahubUser = findUserByUsername('datahub');
@@ -62,6 +59,7 @@ export const datasetEntity = ({
                 {
                     owner: datahubUser,
                     type: OwnershipType.Dataowner,
+                    associatedUrn: `urn:li:dataset:(${platformURN},${name},${origin.toUpperCase()})`,
                     __typename: 'Owner',
                 },
             ],
@@ -79,7 +77,8 @@ export const datasetEntity = ({
         usageStats: null,
         glossaryTerms: null,
         schemaMetadata: null,
-        previousSchemaMetadata: null,
         __typename: 'Dataset',
+        subTypes: null,
+        health: [],
     };
 };

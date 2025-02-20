@@ -14,6 +14,10 @@ record MLFeatureTableProperties includes CustomProperties {
   /**
    * Documentation of the MLFeatureTable
    */
+  @Searchable = {
+    "fieldType": "TEXT",
+    "hasValuesFieldName": "hasDescription"
+  }
   description: optional string
 
   /**
@@ -25,6 +29,12 @@ record MLFeatureTableProperties includes CustomProperties {
       "entityTypes": [ "mlFeature" ]
     }
   }
+  @Searchable = {
+    "/*": {
+      "fieldName": "features",
+      "fieldType": "URN"
+    }
+  }
   mlFeatures: optional array[Urn]
 
   /**
@@ -34,6 +44,12 @@ record MLFeatureTableProperties includes CustomProperties {
     "/*": {
       "name": "KeyedBy",
       "entityTypes": [ "mlPrimaryKey" ]
+    }
+  }
+  @Searchable = {
+    "/*": {
+      "fieldName": "primaryKeys",
+      "fieldType": "URN"
     }
   }
   mlPrimaryKeys: optional array[Urn]

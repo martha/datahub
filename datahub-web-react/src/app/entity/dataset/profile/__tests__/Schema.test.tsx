@@ -1,13 +1,26 @@
 import React from 'react';
 import { fireEvent, render } from '@testing-library/react';
 import { MockedProvider } from '@apollo/client/testing';
-
 import TestPageContainer from '../../../../../utils/test-utils/TestPageContainer';
-import { sampleSchema, sampleSchemaWithPkFk, sampleSchemaWithTags } from '../stories/sampleSchema';
+import {
+    sampleSchema,
+    sampleSchemaWithKeyValueFields,
+    sampleSchemaWithoutFields,
+    sampleSchemaWithPkFk,
+    sampleSchemaWithTags,
+} from '../stories/sampleSchema';
 import { mocks } from '../../../../../Mocks';
 import { SchemaTab } from '../../../shared/tabs/Dataset/Schema/SchemaTab';
-import EntityContext from '../../../shared/EntityContext';
+import { EntityContext } from '../../../shared/EntityContext';
 import { EntityType, SchemaMetadata } from '../../../../../types.generated';
+import { SchemaRow } from '../../../shared/tabs/Dataset/Schema/components/SchemaRow';
+
+vi.mock('virtualizedtableforantd4', async () => {
+    return {
+        ...(await vi.importActual<object>('virtualizedtableforantd4')),
+        useVT: () => [{ body: { row: SchemaRow } }, vi.fn()],
+    };
+});
 
 describe('Schema', () => {
     it('renders', () => {
@@ -19,13 +32,15 @@ describe('Schema', () => {
                             urn: 'urn:li:dataset:123',
                             entityType: EntityType.Dataset,
                             entityData: {
-                                description: 'This is a description',
                                 schemaMetadata: sampleSchema as SchemaMetadata,
                             },
                             baseEntity: {},
-                            updateEntity: jest.fn(),
-                            routeToTab: jest.fn(),
-                            refetch: jest.fn(),
+                            updateEntity: vi.fn(),
+                            routeToTab: vi.fn(),
+                            refetch: vi.fn(),
+                            loading: true,
+                            lineage: undefined,
+                            dataNotCombinedWithSiblings: null,
                         }}
                     >
                         <SchemaTab />
@@ -48,13 +63,18 @@ describe('Schema', () => {
                             urn: 'urn:li:dataset:123',
                             entityType: EntityType.Dataset,
                             entityData: {
-                                description: 'This is a description',
+                                properties: {
+                                    description: 'This is a description',
+                                },
                                 schemaMetadata: sampleSchema as SchemaMetadata,
                             },
                             baseEntity: {},
-                            updateEntity: jest.fn(),
-                            routeToTab: jest.fn(),
-                            refetch: jest.fn(),
+                            updateEntity: vi.fn(),
+                            routeToTab: vi.fn(),
+                            refetch: vi.fn(),
+                            loading: true,
+                            lineage: undefined,
+                            dataNotCombinedWithSiblings: null,
                         }}
                     >
                         <SchemaTab />
@@ -85,13 +105,18 @@ describe('Schema', () => {
                             urn: 'urn:li:dataset:123',
                             entityType: EntityType.Dataset,
                             entityData: {
-                                description: 'This is a description',
+                                properties: {
+                                    description: 'This is a description',
+                                },
                                 schemaMetadata: sampleSchemaWithTags as SchemaMetadata,
                             },
                             baseEntity: {},
-                            updateEntity: jest.fn(),
-                            routeToTab: jest.fn(),
-                            refetch: jest.fn(),
+                            updateEntity: vi.fn(),
+                            routeToTab: vi.fn(),
+                            refetch: vi.fn(),
+                            loading: true,
+                            lineage: undefined,
+                            dataNotCombinedWithSiblings: null,
                         }}
                     >
                         <SchemaTab />
@@ -112,13 +137,18 @@ describe('Schema', () => {
                             urn: 'urn:li:dataset:123',
                             entityType: EntityType.Dataset,
                             entityData: {
-                                description: 'This is a description',
+                                properties: {
+                                    description: 'This is a description',
+                                },
                                 schemaMetadata: sampleSchemaWithTags as SchemaMetadata,
                             },
                             baseEntity: {},
-                            updateEntity: jest.fn(),
-                            routeToTab: jest.fn(),
-                            refetch: jest.fn(),
+                            updateEntity: vi.fn(),
+                            routeToTab: vi.fn(),
+                            refetch: vi.fn(),
+                            loading: true,
+                            lineage: undefined,
+                            dataNotCombinedWithSiblings: null,
                         }}
                     >
                         <SchemaTab />
@@ -138,13 +168,18 @@ describe('Schema', () => {
                             urn: 'urn:li:dataset:123',
                             entityType: EntityType.Dataset,
                             entityData: {
-                                description: 'This is a description',
+                                properties: {
+                                    description: 'This is a description',
+                                },
                                 schemaMetadata: sampleSchemaWithTags as SchemaMetadata,
                             },
                             baseEntity: {},
-                            updateEntity: jest.fn(),
-                            routeToTab: jest.fn(),
-                            refetch: jest.fn(),
+                            updateEntity: vi.fn(),
+                            routeToTab: vi.fn(),
+                            refetch: vi.fn(),
+                            loading: true,
+                            lineage: undefined,
+                            dataNotCombinedWithSiblings: null,
                         }}
                     >
                         <SchemaTab />
@@ -164,13 +199,18 @@ describe('Schema', () => {
                             urn: 'urn:li:dataset:123',
                             entityType: EntityType.Dataset,
                             entityData: {
-                                description: 'This is a description',
+                                properties: {
+                                    description: 'This is a description',
+                                },
                                 schemaMetadata: sampleSchemaWithPkFk as SchemaMetadata,
                             },
                             baseEntity: {},
-                            updateEntity: jest.fn(),
-                            routeToTab: jest.fn(),
-                            refetch: jest.fn(),
+                            updateEntity: vi.fn(),
+                            routeToTab: vi.fn(),
+                            refetch: vi.fn(),
+                            loading: true,
+                            lineage: undefined,
+                            dataNotCombinedWithSiblings: null,
                         }}
                     >
                         <SchemaTab />
@@ -190,13 +230,18 @@ describe('Schema', () => {
                             urn: 'urn:li:dataset:123',
                             entityType: EntityType.Dataset,
                             entityData: {
-                                description: 'This is a description',
+                                properties: {
+                                    description: 'This is a description',
+                                },
                                 schemaMetadata: sampleSchemaWithPkFk as SchemaMetadata,
                             },
                             baseEntity: {},
-                            updateEntity: jest.fn(),
-                            routeToTab: jest.fn(),
-                            refetch: jest.fn(),
+                            updateEntity: vi.fn(),
+                            routeToTab: vi.fn(),
+                            refetch: vi.fn(),
+                            loading: true,
+                            lineage: undefined,
+                            dataNotCombinedWithSiblings: null,
                         }}
                     >
                         <SchemaTab />
@@ -211,5 +256,142 @@ describe('Schema', () => {
 
         expect(getByText('Foreign Key to')).toBeInTheDocument();
         expect(getAllByText('Yet Another Dataset')).toHaveLength(2);
+    });
+
+    it('renders key/value toggle', () => {
+        const { getByText, queryByText } = render(
+            <MockedProvider mocks={mocks} addTypename={false}>
+                <TestPageContainer>
+                    <EntityContext.Provider
+                        value={{
+                            urn: 'urn:li:dataset:123',
+                            entityType: EntityType.Dataset,
+                            entityData: {
+                                properties: {
+                                    description: 'This is a description',
+                                },
+                                schemaMetadata: sampleSchemaWithKeyValueFields as SchemaMetadata,
+                            },
+                            baseEntity: {},
+                            updateEntity: vi.fn(),
+                            routeToTab: vi.fn(),
+                            refetch: vi.fn(),
+                            loading: true,
+                            lineage: undefined,
+                            dataNotCombinedWithSiblings: null,
+                        }}
+                    >
+                        <SchemaTab />
+                    </EntityContext.Provider>
+                </TestPageContainer>
+            </MockedProvider>,
+        );
+        expect(getByText('Key')).toBeInTheDocument();
+        expect(getByText('Value')).toBeInTheDocument();
+        expect(getByText('count')).toBeInTheDocument();
+        expect(getByText('cost')).toBeInTheDocument();
+        expect(queryByText('id')).not.toBeInTheDocument();
+
+        const keyButton = getByText('Key');
+        fireEvent.click(keyButton);
+
+        expect(getByText('Key')).toBeInTheDocument();
+        expect(getByText('Value')).toBeInTheDocument();
+        expect(getByText('id')).toBeInTheDocument();
+        expect(queryByText('count')).not.toBeInTheDocument();
+        expect(queryByText('cost')).not.toBeInTheDocument();
+    });
+
+    it('does not renders key/value toggle when no schema', () => {
+        const { queryByText } = render(
+            <MockedProvider mocks={mocks} addTypename={false}>
+                <TestPageContainer>
+                    <EntityContext.Provider
+                        value={{
+                            urn: 'urn:li:dataset:123',
+                            entityType: EntityType.Dataset,
+                            entityData: {
+                                properties: {
+                                    description: 'This is a description',
+                                },
+                                schemaMetadata: sampleSchemaWithoutFields as SchemaMetadata,
+                            },
+                            baseEntity: {},
+                            updateEntity: vi.fn(),
+                            routeToTab: vi.fn(),
+                            refetch: vi.fn(),
+                            loading: true,
+                            lineage: undefined,
+                            dataNotCombinedWithSiblings: null,
+                        }}
+                    >
+                        <SchemaTab />
+                    </EntityContext.Provider>
+                </TestPageContainer>
+            </MockedProvider>,
+        );
+        expect(queryByText('Key')).not.toBeInTheDocument();
+        expect(queryByText('Value')).not.toBeInTheDocument();
+    });
+
+    it('renders usage column when usage is present', () => {
+        const usageStats = {
+            buckets: [
+                {
+                    bucket: Date.now(),
+                    metrics: {
+                        totalSqlQueries: 10,
+                    },
+                },
+            ],
+            aggregations: {
+                uniqueUserCount: 2,
+                totalSqlQueries: 10,
+                fields: [
+                    {
+                        fieldName: 'id',
+                        count: 10,
+                    },
+                    {
+                        fieldName: 'name',
+                        count: 24,
+                    },
+                ],
+            },
+        };
+
+        const { queryByText } = render(
+            <MockedProvider mocks={mocks} addTypename={false}>
+                <TestPageContainer>
+                    <EntityContext.Provider
+                        value={{
+                            urn: 'urn:li:dataset:123',
+                            entityType: EntityType.Dataset,
+                            entityData: {
+                                properties: {
+                                    description: 'This is a description',
+                                },
+                                schemaMetadata: sampleSchema as SchemaMetadata,
+                            },
+                            baseEntity: {
+                                dataset: {
+                                    urn: 'urn:li:dataset:123',
+                                    usageStats,
+                                },
+                            },
+                            updateEntity: vi.fn(),
+                            routeToTab: vi.fn(),
+                            refetch: vi.fn(),
+                            loading: true,
+                            lineage: undefined,
+                            dataNotCombinedWithSiblings: null,
+                        }}
+                    >
+                        <SchemaTab />
+                    </EntityContext.Provider>
+                </TestPageContainer>
+            </MockedProvider>,
+        );
+        expect(queryByText('Usage')).toBeInTheDocument();
     });
 });

@@ -1,5 +1,5 @@
 import { execSync } from "child_process";
-import * as matter from "gray-matter";
+import matter from "gray-matter";
 import * as fs from "fs";
 import * as path from "path";
 import { Octokit } from "@octokit/rest";
@@ -10,10 +10,13 @@ import { retry } from "@octokit/plugin-retry";
 
 // Constants.
 const HOSTED_SITE_URL = "https://datahubproject.io";
-const GITHUB_EDIT_URL = "https://github.com/linkedin/datahub/blob/master";
-const GITHUB_BROWSE_URL = "https://github.com/linkedin/datahub/blob/master";
+const GITHUB_EDIT_URL =
+  "https://github.com/datahub-project/datahub/blob/master";
+const GITHUB_BROWSE_URL =
+  "https://github.com/datahub-project/datahub/blob/master";
 
-const OUTPUT_DIRECTORY = "genDocs";
+const OUTPUT_DIRECTORY = "docs";
+const STATIC_DIRECTORY = "genStatic/artifacts";
 
 const SIDEBARS_DEF_PATH = "./sidebars.js";
 const sidebars = require(SIDEBARS_DEF_PATH);
@@ -23,7 +26,7 @@ const sidebars_text = fs.readFileSync(SIDEBARS_DEF_PATH).toString();
 const MyOctokit = Octokit.plugin(retry).plugin(throttling);
 const octokit = new MyOctokit({
   throttle: {
-    onRateLimit: (retryAfter, options) => {
+    onRateLimit: (retryAfter: number, options: any) => {
       // Retry twice after rate limit is hit.
       if (options.request.retryCount <= 2) {
         return true;
@@ -58,10 +61,51 @@ function accounted_for_in_sidebar(filepath: string): boolean {
 }
 
 function list_markdown_files(): string[] {
-  const all_markdown_files = execSync("cd .. && git ls-files . | grep '.md$'")
+  let all_markdown_files = execSync("git ls-files --full-name .. | grep '.md$'")
     .toString()
     .trim()
     .split("\n");
+  let all_generated_markdown_files = execSync(
+    "cd .. && ls docs/generated/**/**/*.md && ls docs/generated/**/*.md"
+  )
+    .toString()
+    .trim()
+    .split("\n");
+
+  all_markdown_files = [...all_markdown_files, ...all_generated_markdown_files];
+
+  if (!process.env.CI) {
+    // If not in CI, we also include "untracked" files.
+    const untracked_files = execSync(
+      "(git ls-files --full-name --others --exclude-standard .. | grep '.md$') || true"
+    )
+      .toString()
+      .trim()
+      .split("\n")
+      .filter((filepath) => !all_generated_markdown_files.includes(filepath));
+
+    if (untracked_files.length > 0) {
+      console.log(
+        `Including untracked files in docs list: [${untracked_files}]`
+      );
+      all_markdown_files = [...all_markdown_files, ...untracked_files];
+    }
+
+    // But we should also exclude any files that have been deleted.
+    const deleted_files = execSync(
+      "(git ls-files --full-name --deleted --exclude-standard .. | grep '.md$') || true"
+    )
+      .toString()
+      .trim()
+      .split("\n");
+
+    if (deleted_files.length > 0) {
+      console.log(`Removing deleted files from docs list: [${deleted_files}]`);
+      all_markdown_files = all_markdown_files.filter(
+        (filepath) => !deleted_files.includes(filepath)
+      );
+    }
+  }
 
   const filter_patterns = [
     // We don't need our issue and pull request templates.
@@ -70,14 +114,18 @@ function list_markdown_files(): string[] {
     /^docs-website\//,
     // Don't want hosted docs for these.
     /^contrib\//,
-    // Keep main docs for kubernetes, but skip the inner docs
+    // Keep main docs for kubernetes, but skip the inner docs.
     /^datahub-kubernetes\//,
-    /^datahub-web\//,
+    // Various other docs/directories to ignore.
+    /^metadata-models\/docs\//, // these are used to generate docs, so we don't want to consider them here
+    /^metadata-ingestion\/archived\//, // these are archived, so we don't want to consider them here
+    /^metadata-ingestion\/docs\/sources\//, // these are used to generate docs, so we don't want to consider them here
+    /^metadata-ingestion\/tests\//,
     /^metadata-ingestion-examples\//,
     /^docker\/(?!README|datahub-upgrade|airflow\/local_airflow)/, // Drop all but a few docker docs.
-    /^docs\/rfc\/templates\/000-template\.md$/,
     /^docs\/docker\/README\.md/, // This one is just a pointer to another file.
     /^docs\/README\.md/, // This one is just a pointer to the hosted docs site.
+    /^\s*$/, //Empty string
   ];
 
   const markdown_files = all_markdown_files.filter((filepath) => {
@@ -87,7 +135,9 @@ function list_markdown_files(): string[] {
 }
 
 const markdown_files = list_markdown_files();
-// console.log(markdown_files);
+// for (let markdown_file of markdown_files) {
+//   console.log("markdown_file", markdown_file);
+// }
 
 function get_id(filepath: string): string {
   // Removes the file extension (e.g. md).
@@ -97,12 +147,16 @@ function get_id(filepath: string): string {
 }
 
 const hardcoded_slugs = {
-  "README.md": "/",
+  "README.md": "/introduction",
 };
 
 function get_slug(filepath: string): string {
+  // The slug is the URL path to the page.
+  // In the actual site, all slugs are prefixed with /docs.
+  // There's no need to do this cleanup, but it does make the URLs a bit more aesthetic.
+
   if (filepath in hardcoded_slugs) {
-    return hardcoded_slugs[filepath];
+    return hardcoded_slugs[filepath as keyof typeof hardcoded_slugs];
   }
 
   let slug = get_id(filepath);
@@ -119,7 +173,10 @@ function get_slug(filepath: string): string {
 
 const hardcoded_titles = {
   "README.md": "Introduction",
-  "docs/demo.md": "Demo",
+  "docs/actions/README.md": "Introduction",
+  "docs/actions/concepts.md": "Concepts",
+  "docs/actions/quickstart.md": "Quickstart",
+  "docs/saas.md": "DataHub Cloud",
 };
 // titles that have been hardcoded in sidebars.js
 // (for cases where doc is reference multiple times with different titles)
@@ -160,9 +217,10 @@ function markdown_guess_title(
 
   let title: string;
   if (filepath in hardcoded_titles) {
-    title = hardcoded_titles[filepath];
+    title = hardcoded_titles[filepath as keyof typeof hardcoded_titles];
     if (filepath in hardcoded_descriptions) {
-      contents.data.description = hardcoded_descriptions[filepath];
+      contents.data.description =
+        hardcoded_descriptions[filepath as keyof typeof hardcoded_descriptions];
     }
     if (hardcoded_hide_title.includes(filepath)) {
       contents.data.hide_title = true;
@@ -189,7 +247,12 @@ function markdown_guess_title(
   if (sidebar_label.startsWith("DataHub ")) {
     sidebar_label = sidebar_label.slice(8).trim();
   }
-  contents.data.sidebar_label = sidebar_label;
+  if (sidebar_label.startsWith("About DataHub ")) {
+    sidebar_label = sidebar_label.slice(14).trim();
+  }
+  if (sidebar_label != title) {
+    contents.data.sidebar_label = sidebar_label;
+  }
 }
 
 function markdown_add_edit_url(
@@ -212,6 +275,19 @@ function markdown_add_slug(
   contents.data.slug = slug;
 }
 
+// function copy_platform_logos(): void {
+//   execSync("mkdir -p " + OUTPUT_DIRECTORY + "/imgs/platform-logos");
+//   execSync(
+//     "cp -r ../datahub-web-react/src/images " +
+//       OUTPUT_DIRECTORY +
+//       "/imgs/platform-logos"
+//   );
+// }
+
+function trim_anchor_link(url: string): string {
+  return url.replace(/#.+$/, "");
+}
+
 function new_url(original: string, filepath: string): string {
   if (original.toLowerCase().startsWith(HOSTED_SITE_URL)) {
     // For absolute links to the hosted docs site, we transform them into local ones.
@@ -224,10 +300,10 @@ function new_url(original: string, filepath: string): string {
     if (
       (original
         .toLowerCase()
-        .startsWith("https://github.com/linkedin/datahub/blob") ||
+        .startsWith("https://github.com/datahub-project/datahub/blob") ||
         original
           .toLowerCase()
-          .startsWith("https://github.com/linkedin/datahub/tree")) &&
+          .startsWith("https://github.com/datahub-project/datahub/tree")) &&
       (original.endsWith(".md") || original.endsWith(".pdf"))
     ) {
       throw new Error(`absolute link (${original}) found in ${filepath}`);
@@ -241,7 +317,7 @@ function new_url(original: string, filepath: string): string {
   }
 
   // Now we assume this is a local reference.
-  const suffix = path.extname(original);
+  const suffix = path.extname(trim_anchor_link(original));
   if (
     suffix == "" ||
     [
@@ -253,15 +329,17 @@ function new_url(original: string, filepath: string): string {
       ".py",
       ".ts",
       ".yml",
+      ".yaml",
       ".sh",
       ".env",
       ".sql",
+      // Using startsWith since some URLs will be .ext#LINENO
     ].some((ext) => suffix.startsWith(ext))
   ) {
     // A reference to a file or directory in the Github repo.
     const relation = path.dirname(filepath);
     const updated_path = path.normalize(`${relation}/${original}`);
-    const check_path = updated_path.replace(/#.+$/, "");
+    const check_path = trim_anchor_link(updated_path);
     if (
       !fs.existsSync(`../${check_path}`) &&
       actually_in_sidebar(filepath) &&
@@ -286,6 +364,7 @@ function new_url(original: string, filepath: string): string {
     const updated = path.normalize(
       `${"../".repeat(up_levels + 2)}/${relation}/${original}`
     );
+    //console.log(`Rewriting ${original} ${filepath} as ${updated}`);
     return updated;
   } else {
     throw new Error(`unknown extension - ${original} in ${filepath}`);
@@ -302,7 +381,7 @@ function markdown_rewrite_urls(
       //
       // We do a little bit of parenthesis matching here to account for parens in URLs.
       // See https://stackoverflow.com/a/17759264 for explanation of the second capture group.
-      /\[(.+?)\]\(((?:[^)(]+|\((?:[^)(]+|\([^)(]*\))*\))*)\)/g,
+      /\[(.*?)\]\(((?:[^)(]+|\((?:[^)(]+|\([^)(]*\))*\))*)\)/g,
       (_, text, url) => {
         const updated = new_url(url.trim(), filepath);
         return `[${text}](${updated})`;
@@ -310,7 +389,7 @@ function markdown_rewrite_urls(
     )
     .replace(
       // Also look for the [text]: url syntax.
-      /^\[(.+?)\]\s*:\s*(.+?)\s*$/gm,
+      /^\[([^^\n\r]+?)\]\s*:\s*(.+?)\s*$/gm,
       (_, text, url) => {
         const updated = new_url(url, filepath);
         return `[${text}]: ${updated}`;
@@ -329,6 +408,73 @@ function markdown_enable_specials(
   contents.content = new_content;
 }
 
+function markdown_process_inline_directives(
+  contents: matter.GrayMatterFile<string>,
+  filepath: string
+): void {
+  const new_content = contents.content.replace(
+    /^{{\s+inline\s+(\S+)\s+(show_path_as_comment\s+)?\s*}}$/gm,
+    (_, inline_file_path: string, show_path_as_comment: string) => {
+      if (!inline_file_path.startsWith("/")) {
+        throw new Error(`inline path must be absolute: ${inline_file_path}`);
+      }
+
+      // console.log(`Inlining ${inline_file_path} into ${filepath}`);
+      const referenced_file = fs.readFileSync(
+        path.join("..", inline_file_path),
+        "utf8"
+      );
+
+      // TODO: Add support for start_after_line and end_before_line arguments
+      // that can be used to limit the inlined content to a specific range of lines.
+      let new_contents = "";
+      if (show_path_as_comment) {
+        new_contents += `# Inlined from ${inline_file_path}\n`;
+      }
+      new_contents += referenced_file;
+
+      return new_contents;
+    }
+  );
+  contents.content = new_content;
+}
+
+function markdown_process_command_output(
+  contents: matter.GrayMatterFile<string>,
+  filepath: string
+): void {
+  const new_content = contents.content.replace(
+    /^{{\s*command-output\s*([\s\S]*?)\s*}}$/gm,
+    (_, command: string) => {
+      try {
+        // Change to repo root directory before executing command
+        const repoRoot = path.resolve(__dirname, "..");
+
+        console.log(`Executing command: ${command}`);
+
+        // Execute the command and capture output
+        const output = execSync(command, {
+          cwd: repoRoot,
+          encoding: "utf8",
+          stdio: ["pipe", "pipe", "pipe"],
+        });
+
+        // Return the command output
+        return output.trim();
+      } catch (error: any) {
+        // If there's an error, include it as a comment
+        const errorMessage = error.stderr
+          ? error.stderr.toString()
+          : error.message;
+        return `${
+          error.stdout ? error.stdout.toString().trim() : ""
+        }\n<!-- Error: ${errorMessage.trim()} -->`;
+      }
+    }
+  );
+  contents.content = new_content;
+}
+
 function markdown_sanitize_and_linkify(content: string): string {
   // MDX escaping
   content = content.replace(/</g, "&lt;");
@@ -339,7 +485,13 @@ function markdown_sanitize_and_linkify(content: string): string {
   // Link to issues/pull requests.
   content = content.replace(
     /#(\d+)\b/g,
-    "[#$1](https://github.com/linkedin/datahub/pull/$1)"
+    "[#$1](https://github.com/datahub-project/datahub/pull/$1)"
+  );
+
+  // Prettify bare links to PRs.
+  content = content.replace(
+    /(\s+)(https:\/\/github\.com\/linkedin\/datahub\/pull\/(\d+))(\s+|$)/g,
+    "$1[#$3]($2)$4"
   );
 
   return content;
@@ -347,7 +499,7 @@ function markdown_sanitize_and_linkify(content: string): string {
 
 function pretty_format_date(datetime: string): string {
   const d = new Date(Date.parse(datetime));
-  return d.toDateString();
+  return d.toISOString().split("T")[0];
 }
 
 function make_link_anchor(text: string): string {
@@ -361,32 +513,42 @@ async function generate_releases_markdown(): Promise<
 title: DataHub Releases
 sidebar_label: Releases
 slug: /releases
-custom_edit_url: https://github.com/linkedin/datahub/blob/master/docs-website/generateDocsDir.ts
+custom_edit_url: https://github.com/datahub-project/datahub/blob/master/docs-website/generateDocsDir.ts
 ---
 
-# DataHub Releases\n\n`);
+# DataHub Releases
+
+## Summary\n\n`);
 
   const releases_list = await octokit.rest.repos.listReleases({
-    owner: "linkedin",
+    owner: "datahub-project",
     repo: "datahub",
   });
 
+  // We only embed release notes for releases in the last 3 months.
+  const release_notes_date_cutoff = new Date(
+    Date.now() - 1000 * 60 * 60 * 24 * 30 * 3
+  );
+
   // Construct a summary table.
-  let pastVersionCutoff = false;
   const releaseNoteVersions = new Set();
   contents.content += "| Version | Release Date | Links |\n";
   contents.content += "| ------- | ------------ | ----- |\n";
   for (const release of releases_list.data) {
+    if (release.prerelease || release.draft) {
+      continue;
+    }
+    const release_date = new Date(Date.parse(release.created_at));
+
     let row = `| **${release.tag_name}** | ${pretty_format_date(
       release.created_at
     )} |`;
-    if (release.tag_name == "v0.6.1") {
-      pastVersionCutoff = true;
-    } else if (!pastVersionCutoff) {
+    if (release_date > release_notes_date_cutoff) {
       row += `[Release Notes](#${make_link_anchor(release.tag_name)}), `;
       releaseNoteVersions.add(release.tag_name);
     }
     row += `[View on GitHub](${release.html_url}) |\n`;
+
     contents.content += row;
   }
   contents.content += "\n\n";
@@ -395,7 +557,7 @@ custom_edit_url: https://github.com/linkedin/datahub/blob/master/docs-website/ge
   for (const release of releases_list.data) {
     let body: string;
     if (releaseNoteVersions.has(release.tag_name)) {
-      body = release.body;
+      body = release.body ?? "";
       body = markdown_sanitize_and_linkify(body);
 
       // Redo the heading levels. First we find the min heading level, and then
@@ -436,12 +598,37 @@ function write_markdown_file(
 ): void {
   const pathname = path.dirname(output_filepath);
   fs.mkdirSync(pathname, { recursive: true });
-  fs.writeFileSync(output_filepath, contents.stringify(""));
+  try {
+    fs.writeFileSync(output_filepath, contents.stringify(""));
+  } catch (error) {
+    console.log(`Failed to write file ${output_filepath}`);
+    console.log(`contents = ${contents}`);
+    throw error;
+  }
+}
+
+function copy_python_wheels(): void {
+  // Copy the built wheel files to the static directory.
+  // Everything is copied to the python-build directory first, so
+  // we just need to copy from there.
+  const wheel_dir = "../python-build/wheels";
+
+  const wheel_output_directory = path.join(STATIC_DIRECTORY, "wheels");
+  fs.mkdirSync(wheel_output_directory, { recursive: true });
+
+  const wheel_files = fs.readdirSync(wheel_dir);
+  for (const wheel_file of wheel_files) {
+    const src = path.join(wheel_dir, wheel_file);
+    const dest = path.join(wheel_output_directory, wheel_file);
+
+    // console.log(`Copying artifact ${src} to ${dest}...`);
+    fs.copyFileSync(src, dest);
+  }
 }
 
 (async function main() {
   for (const filepath of markdown_files) {
-    // console.log("Processing:", filepath);
+    //console.log("Processing:", filepath);
     const contents_string = fs.readFileSync(`../${filepath}`).toString();
     const contents = matter(contents_string);
 
@@ -450,6 +637,9 @@ function write_markdown_file(
     markdown_add_edit_url(contents, filepath);
     markdown_rewrite_urls(contents, filepath);
     markdown_enable_specials(contents, filepath);
+    markdown_process_inline_directives(contents, filepath);
+    markdown_process_command_output(contents, filepath);
+    //copy_platform_logos();
     // console.log(contents);
 
     const out_path = `${OUTPUT_DIRECTORY}/${filepath}`;
@@ -464,7 +654,18 @@ function write_markdown_file(
   }
 
   // Error if a doc is not accounted for in a sidebar.
-  const autogenerated_sidebar_directories = ["docs/rfc/active/"];
+  const autogenerated_sidebar_directories = [
+    "docs/generated/metamodel",
+    "docs/generated/ingestion",
+    "docs/actions/actions",
+    "docs/actions/events",
+    "docs/actions/sources",
+    "docs/actions/guides",
+    "metadata-ingestion/archived",
+    "metadata-ingestion/sink_docs",
+    "docs/what",
+    "docs/wip",
+  ];
   for (const filepath of markdown_files) {
     if (
       autogenerated_sidebar_directories.some((dir) => filepath.startsWith(dir))
@@ -479,4 +680,8 @@ function write_markdown_file(
       );
     }
   }
+
+  // Generate static directory.
+  copy_python_wheels();
+  // TODO: copy over the source json schemas + other artifacts.
 })();

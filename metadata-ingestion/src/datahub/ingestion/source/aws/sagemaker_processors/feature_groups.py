@@ -1,3 +1,5 @@
+import logging
+import textwrap
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Iterable, List
 
@@ -21,13 +23,14 @@ from datahub.metadata.schema_classes import (
 )
 
 if TYPE_CHECKING:
-
     from mypy_boto3_sagemaker import SageMakerClient
     from mypy_boto3_sagemaker.type_defs import (
         DescribeFeatureGroupResponseTypeDef,
         FeatureDefinitionTypeDef,
         FeatureGroupSummaryTypeDef,
     )
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -92,7 +95,7 @@ class FeatureGroupProcessor:
         feature_group_snapshot = MLFeatureTableSnapshot(
             urn=builder.make_ml_feature_table_urn("sagemaker", feature_group_name),
             aspects=[
-                BrowsePathsClass(paths=[f"/sagemaker/{feature_group_name}"]),
+                BrowsePathsClass(paths=["/sagemaker"]),
             ],
         )
 
@@ -135,7 +138,6 @@ class FeatureGroupProcessor:
     }
 
     def get_feature_type(self, aws_type: str, feature_name: str) -> str:
-
         mapped_type = self.field_type_mappings.get(aws_type)
 
         if mapped_type is None:
@@ -172,7 +174,6 @@ class FeatureGroupProcessor:
         feature_sources = []
 
         if "OfflineStoreConfig" in feature_group_details:
-
             # remove S3 prefix (s3://)
             s3_name = feature_group_details["OfflineStoreConfig"]["S3StorageConfig"][
                 "S3Uri"
@@ -190,7 +191,6 @@ class FeatureGroupProcessor:
             )
 
             if "DataCatalogConfig" in feature_group_details["OfflineStoreConfig"]:
-
                 # if Glue catalog associated with offline store
                 glue_database = feature_group_details["OfflineStoreConfig"][
                     "DataCatalogConfig"
@@ -201,11 +201,12 @@ class FeatureGroupProcessor:
 
                 full_table_name = f"{glue_database}.{glue_table}"
 
-                self.report.report_warning(
-                    full_table_name,
-                    f"""Note: table {full_table_name} is an AWS Glue object.
+                logging.info(
+                    textwrap.dedent(
+                        f"""Note: table {full_table_name} is an AWS Glue object. This source does not ingest all metadata for Glue tables.
                         To view full table metadata, run Glue ingestion
-                        (see https://datahubproject.io/docs/metadata-ingestion/#aws-glue-glue)""",
+                        (see https://datahubproject.io/docs/generated/ingestion/sources/glue)"""
+                    )
                 )
 
                 feature_sources.append(
@@ -256,26 +257,20 @@ class FeatureGroupProcessor:
             mce = MetadataChangeEvent(proposedSnapshot=feature_snapshot)
 
         return MetadataWorkUnit(
-            id=f'{feature_group_details["FeatureGroupName"]}-{feature["FeatureName"]}',
+            id=f"{feature_group_details['FeatureGroupName']}-{feature['FeatureName']}",
             mce=mce,
         )
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
-
         feature_groups = self.get_all_feature_groups()
 
         for feature_group in feature_groups:
-
             feature_group_details = self.get_feature_group_details(
                 feature_group["FeatureGroupName"]
             )
 
             for feature in feature_group_details["FeatureDefinitions"]:
                 self.report.report_feature_scanned()
-                wu = self.get_feature_wu(feature_group_details, feature)
-                self.report.report_workunit(wu)
-                yield wu
+                yield self.get_feature_wu(feature_group_details, feature)
             self.report.report_feature_group_scanned()
-            wu = self.get_feature_group_wu(feature_group_details)
-            self.report.report_workunit(wu)
-            yield wu
+            yield self.get_feature_group_wu(feature_group_details)

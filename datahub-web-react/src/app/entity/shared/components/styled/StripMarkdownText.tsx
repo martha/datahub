@@ -2,12 +2,13 @@ import React from 'react';
 import removeMd from '@tommoor/remove-markdown';
 import styled from 'styled-components';
 
-const RemoveMarkdownContainer = styled.div`
+const RemoveMarkdownContainer = styled.div<{ shouldWrap: boolean }>`
     display: block;
     overflow-wrap: break-word;
-    word-wrap: break-word;
-    overflow-x: hidden;
-    overflow-y: auto;
+    white-space: ${(props) => (props.shouldWrap ? 'normal' : 'nowrap')};
+    width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
 `;
 
 export type Props = {
@@ -15,6 +16,8 @@ export type Props = {
     readMore?: JSX.Element;
     suffix?: JSX.Element;
     limit?: number;
+    shouldWrap?: boolean;
+    customRender?: (text: string) => JSX.Element;
 };
 
 export const removeMarkdown = (text: string) => {
@@ -27,7 +30,7 @@ export const removeMarkdown = (text: string) => {
         .replace(/^•/, ''); // remove first •
 };
 
-export default function NoMarkdownViewer({ children, readMore, suffix, limit }: Props) {
+export default function NoMarkdownViewer({ children, customRender, readMore, suffix, limit, shouldWrap }: Props) {
     let plainText = removeMarkdown(children || '');
 
     if (limit) {
@@ -41,8 +44,9 @@ export default function NoMarkdownViewer({ children, readMore, suffix, limit }: 
     const showReadMore = plainText.length >= (limit || 0);
 
     return (
-        <RemoveMarkdownContainer>
-            {plainText} {showReadMore && <>{readMore}</>} {suffix}
+        <RemoveMarkdownContainer shouldWrap={!!shouldWrap}>
+            {customRender ? customRender(plainText) : plainText}
+            {showReadMore && <>{readMore}</>} {suffix}
         </RemoveMarkdownContainer>
     );
 }

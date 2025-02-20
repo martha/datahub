@@ -13,19 +13,16 @@ record MLModelDeploymentKey {
   /**
   * Standardized platform urn for the model Deployment
   */
-  @Searchable = {
-    "fieldType": "URN",
-    "addToFilters": true
-  }
   platform: Urn
 
   /**
   * Name of the MLModelDeployment
   */
   @Searchable = {
-    "fieldType": "TEXT_PARTIAL",
+    "fieldType": "WORD_GRAM",
     "enableAutocomplete": true,
-    "boostScore": 10.0
+    "boostScore": 10.0,
+    "fieldNameAliases": [ "_entityName" ]
   }
   name: string
 
@@ -34,6 +31,8 @@ record MLModelDeploymentKey {
   */
   @Searchable = {
     "fieldType": "TEXT_PARTIAL",
+    "addToFilters": true,
+    "filterNameOverride": "Environment",
     "queryByDefault": false
   }
   origin: FabricType

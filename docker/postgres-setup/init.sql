@@ -11,8 +11,10 @@ CREATE TABLE IF NOT EXISTS metadata_aspect_v2 (
   CONSTRAINT pk_metadata_aspect_v2 PRIMARY KEY (urn, aspect, version)
 );
 
+create index timeIndex ON metadata_aspect_v2 (createdon);
+
 -- create default records for datahub user if not exists
-CREATE TEMP TABLE temp_metadata_aspect_v2 AS TABLE metadata_aspect_v2;
+CREATE TEMP TABLE temp_metadata_aspect_v2 AS TABLE metadata_aspect_v2 WITH NO DATA;
 INSERT INTO temp_metadata_aspect_v2 (urn, aspect, version, metadata, createdon, createdby) VALUES(
   'urn:li:corpuser:datahub',
   'corpUserInfo',
@@ -24,7 +26,7 @@ INSERT INTO temp_metadata_aspect_v2 (urn, aspect, version, metadata, createdon, 
   'urn:li:corpuser:datahub',
   'corpUserEditableInfo',
   0,
-  '{"skills":[],"teams":[],"pictureLink":"https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/default_avatar.png"}',
+  '{"skills":[],"teams":[],"pictureLink":"https://raw.githubusercontent.com/datahub-project/datahub/master/datahub-web-react/src/images/default_avatar.png"}',
   now(),
   'urn:li:corpuser:__datahub_system'
 );
@@ -33,3 +35,5 @@ INSERT INTO metadata_aspect_v2
 SELECT * FROM temp_metadata_aspect_v2
 WHERE NOT EXISTS (SELECT * from metadata_aspect_v2);
 DROP TABLE temp_metadata_aspect_v2;
+
+DROP TABLE IF EXISTS metadata_index;

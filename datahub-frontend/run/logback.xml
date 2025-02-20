@@ -5,10 +5,15 @@
 
   <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
     <layout class="ch.qos.logback.classic.PatternLayout">
-      <pattern>%d{HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n</pattern>
+      <pattern>%date{ISO8601} [%thread] %-5level %logger{36} - %msg%n</pattern>
     </layout>
     <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
       <level>INFO</level>
+    </filter>
+    <filter class="com.linkedin.metadata.utils.log.LogMessageFilter">
+      <excluded>Unable to renew the session. The session store may not support this feature</excluded>
+      <excluded>Preferred JWS algorithm: null not available. Using all metadata algorithms:</excluded>
+      <excluded>Config does not exist: file:///etc/datahub/plugins/frontend/auth/user.props</excluded>
     </filter>
   </appender>
 
@@ -27,7 +32,7 @@
       <level>INFO</level>
     </filter>
     <encoder>
-      <pattern>%d{HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n</pattern>
+      <pattern>%date{ISO8601} [%thread] %-5level %logger{36} - %msg%n</pattern>
     </encoder>
   </appender>
 
@@ -48,7 +53,7 @@
       <onMismatch>DENY</onMismatch>
     </filter>
     <encoder>
-      <pattern>%d{HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n</pattern>
+      <pattern>%date{ISO8601} [%thread] %-5level %logger{36} - %msg%n</pattern>
     </encoder>
   </appender>
 
@@ -57,6 +62,12 @@
     <appender-ref ref="DEBUG_FILE"/>
   </logger>
   <logger name="controller" level="DEBUG">
+    <appender-ref ref="DEBUG_FILE"/>
+  </logger>
+  <logger name="auth" level="DEBUG">
+    <appender-ref ref="DEBUG_FILE"/>
+  </logger>
+  <logger name="org.pac4j" level="DEBUG">
     <appender-ref ref="DEBUG_FILE"/>
   </logger>
   <logger name="graphql" level="DEBUG">

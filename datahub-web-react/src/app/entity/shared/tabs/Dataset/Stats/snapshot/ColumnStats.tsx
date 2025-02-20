@@ -1,10 +1,11 @@
-import { Tag, Typography } from 'antd';
+import { Typography } from 'antd';
 import { ColumnsType, ColumnType } from 'antd/lib/table';
 import React, { useMemo } from 'react';
 import styled from 'styled-components';
 import { DatasetFieldProfile } from '../../../../../../../types.generated';
 import { StyledTable } from '../../../../components/styled/StyledTable';
 import { ANTD_GRAY } from '../../../../constants';
+import SampleValueTag from './SampleValueTag';
 
 type Props = {
     columnStats: Array<DatasetFieldProfile>;
@@ -13,16 +14,18 @@ type Props = {
 const StatSection = styled.div`
     padding: 20px 20px;
     overflow: auto;
+    display: flex;
+    flex-direction: column;
 `;
 
 const NameText = styled(Typography.Text)`
-    font-family: 'Roboto Mono';
+    font-family: 'Roboto Mono', monospace;
     font-weight: 600;
     font-size: 12px;
     color: ${ANTD_GRAY[9]};
 `;
 
-const isPresent = (val: any) => {
+const isPresent = (val?: string | number | null): val is string | number => {
     return val !== undefined && val !== null;
 };
 
@@ -40,10 +43,10 @@ export default function ColumnStats({ columnStats }: Props) {
                 mean: doc.mean,
                 median: doc.median,
                 stdev: doc.stdev,
-                nullCount: isPresent(doc.nullCount) && doc.nullCount!.toString(),
-                nullPercentage: isPresent(doc.nullProportion) && decimalToPercentStr(doc.nullProportion!, 2),
-                distinctCount: isPresent(doc.uniqueCount) && doc.uniqueCount!.toString(),
-                distinctPercentage: isPresent(doc.uniqueProportion) && decimalToPercentStr(doc.uniqueProportion!, 2),
+                nullCount: isPresent(doc.nullCount) && doc.nullCount.toString(),
+                nullPercentage: isPresent(doc.nullProportion) && decimalToPercentStr(doc.nullProportion, 2),
+                distinctCount: isPresent(doc.uniqueCount) && doc.uniqueCount.toString(),
+                distinctPercentage: isPresent(doc.uniqueProportion) && decimalToPercentStr(doc.uniqueProportion, 2),
                 sampleValues: doc.sampleValues,
             })) || [],
         [columnStats],
@@ -128,7 +131,7 @@ export default function ColumnStats({ columnStats }: Props) {
                         (sampleValues &&
                             sampleValues
                                 .slice(0, sampleValues.length < 3 ? sampleValues?.length : 3)
-                                .map((value) => <Tag>{value}</Tag>)) ||
+                                .map((value) => <SampleValueTag value={value} />)) ||
                         unknownValue()
                     );
                 },
@@ -161,7 +164,7 @@ export default function ColumnStats({ columnStats }: Props) {
     return (
         <StatSection>
             <Typography.Title level={5}>Column Stats</Typography.Title>
-            <StyledTable pagination={false} columns={columnStatsColumns} dataSource={columnStatsTableData} />
+            <StyledTable pagination={false} columns={columnStatsColumns} dataSource={columnStatsTableData} sticky />
         </StatSection>
     );
 }

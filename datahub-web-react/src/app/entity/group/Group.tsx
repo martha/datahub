@@ -1,9 +1,10 @@
-import { UserOutlined } from '@ant-design/icons';
+import { TeamOutlined } from '@ant-design/icons';
 import * as React from 'react';
-import { CorpGroup, CorpUser, EntityType, SearchResult } from '../../../types.generated';
+import { CorpGroup, EntityType, SearchResult } from '../../../types.generated';
 import { Entity, IconStyleType, PreviewType } from '../Entity';
 import { Preview } from './preview/Preview';
 import GroupProfile from './GroupProfile';
+import { getDataForEntityType } from '../shared/containers/profile/utils';
 
 /**
  * Definition of the DataHub CorpGroup entity.
@@ -12,20 +13,20 @@ export class GroupEntity implements Entity<CorpGroup> {
     type: EntityType = EntityType.CorpGroup;
 
     // TODO: update icons for UserGroup
-    icon = (fontSize: number, styleType: IconStyleType) => {
+    icon = (fontSize: number, styleType: IconStyleType, color?: string) => {
         if (styleType === IconStyleType.TAB_VIEW) {
-            return <UserOutlined style={{ fontSize }} />;
+            return <TeamOutlined style={{ fontSize, color }} />;
         }
 
         if (styleType === IconStyleType.HIGHLIGHT) {
-            return <UserOutlined style={{ fontSize, color: 'rgb(144 163 236)' }} />;
+            return <TeamOutlined style={{ fontSize, color }} />;
         }
 
         return (
-            <UserOutlined
+            <TeamOutlined
                 style={{
                     fontSize,
-                    color: '#BFBFBF',
+                    color: color || '#BFBFBF',
                 }}
             />
         );
@@ -39,6 +40,8 @@ export class GroupEntity implements Entity<CorpGroup> {
 
     getAutoCompleteFieldName = () => 'name';
 
+    getGraphName: () => string = () => 'corpGroup';
+
     getPathName: () => string = () => 'group';
 
     getEntityName = () => 'Group';
@@ -50,9 +53,9 @@ export class GroupEntity implements Entity<CorpGroup> {
     renderPreview = (_: PreviewType, data: CorpGroup) => (
         <Preview
             urn={data.urn}
-            name={data.info?.displayName || data.name || ''}
+            name={this.displayName(data)}
             description={data.info?.description}
-            members={data?.relationships?.relationships?.map((rel) => rel?.entity as CorpUser)}
+            membersCount={(data as any)?.memberCount?.total || 0}
         />
     );
 
@@ -61,6 +64,14 @@ export class GroupEntity implements Entity<CorpGroup> {
     };
 
     displayName = (data: CorpGroup) => {
-        return data.info?.displayName || data.name;
+        return data.properties?.displayName || data.info?.displayName || data.name || data.urn;
+    };
+
+    getGenericEntityProperties = (group: CorpGroup) => {
+        return getDataForEntityType({ data: group, entityType: this.type, getOverrideProperties: (data) => data });
+    };
+
+    supportedCapabilities = () => {
+        return new Set([]);
     };
 }

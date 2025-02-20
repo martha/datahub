@@ -11,21 +11,33 @@ record DataHubPolicyInfo {
   /**
    * Display name of the Policy
    */
+  @Searchable = {
+    "fieldType": "TEXT_PARTIAL"
+  }
   displayName: string
 
   /**
    * Description of the Policy
    */
+  @Searchable = {
+    "fieldType": "TEXT"
+  }
   description: string
 
   /**
    * The type of policy
    */
+   @Searchable = {
+    "fieldType": "KEYWORD"
+  }
   type: string
 
   /**
    * The state of policy, ACTIVE or INACTIVE
    */
+  @Searchable = {
+    "fieldType": "KEYWORD"
+  }
   state: string
 
   /**
@@ -36,6 +48,12 @@ record DataHubPolicyInfo {
   /**
    * The privileges that the policy grants.
    */
+  @Searchable = {
+    "/*": {
+      "fieldType": "KEYWORD",
+      "addToFilters": true
+    }
+  }
   privileges: array[string]
 
   /**
@@ -46,6 +64,16 @@ record DataHubPolicyInfo {
   /**
    * Whether the policy should be editable via the UI
    */
+  @Searchable = {
+    "fieldType": "BOOLEAN"
+  }
   editable: boolean = true
 
+  /**
+   * Timestamp when the policy was last updated
+   */
+  @Searchable = {
+    "fieldType": "DATETIME"
+  }
+  lastUpdatedTimestamp: optional long
 }

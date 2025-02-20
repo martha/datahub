@@ -2,12 +2,13 @@ import { Button, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 import { GetDatasetQuery } from '../../../../../../../graphql/dataset.generated';
-import { DatasetProfile, UsageQueryResult } from '../../../../../../../types.generated';
+import { DatasetProfile, Operation, UsageQueryResult } from '../../../../../../../types.generated';
 import UsageFacepile from '../../../../../dataset/profile/UsageFacepile';
 import { ANTD_GRAY } from '../../../../constants';
 import { useBaseEntity, useRouteToTab } from '../../../../EntityContext';
 import { SidebarHeader } from '../SidebarHeader';
 import { InfoItem } from '../../../../components/styled/InfoItem';
+import { formatNumberWithoutAbbreviation } from '../../../../../../shared/formatNumber';
 
 const HeaderInfoBody = styled(Typography.Text)`
     font-size: 16px;
@@ -29,18 +30,40 @@ const StatsRow = styled.div`
 `;
 
 const INFO_ITEM_WIDTH_PX = '150px';
+const LAST_UPDATED_WIDTH_PX = '220px';
 
 export const SidebarStatsSection = () => {
     const baseEntity = useBaseEntity<GetDatasetQuery>();
 
+    const toLocalDateTimeString = (time: number) => {
+        const date = new Date(time);
+        return date.toLocaleString([], {
+            year: 'numeric',
+            month: 'numeric',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+            timeZoneName: 'short',
+        });
+    };
+
     const hasUsageStats = baseEntity?.dataset?.usageStats !== undefined;
     const hasDatasetProfiles = baseEntity?.dataset?.datasetProfiles !== undefined;
+    const hasOperations = (baseEntity?.dataset?.operations?.length || 0) > 0;
 
     const usageStats = (hasUsageStats && (baseEntity?.dataset?.usageStats as UsageQueryResult)) || undefined;
     const datasetProfiles =
         (hasDatasetProfiles && (baseEntity?.dataset?.datasetProfiles as Array<DatasetProfile>)) || undefined;
     const latestProfile = datasetProfiles && datasetProfiles[0];
+    const operations = (hasOperations && (baseEntity?.dataset?.operations as Array<Operation>)) || undefined;
+    const latestOperation = operations && operations[0];
 
+    const lastUpdatedTime = latestOperation && toLocalDateTimeString(latestOperation?.lastUpdatedTimestamp);
+
+    const hasUsageStatsAggregations =
+        usageStats?.aggregations?.totalSqlQueries || (usageStats?.aggregations?.users?.length || 0) > 0;
+    const hasLatestProfiles = latestProfile?.rowCount || latestProfile?.columnCount;
+    const hasLatestOperation = latestOperation?.timestampMillis;
     const routeToTab = useRouteToTab();
 
     return (
@@ -52,39 +75,55 @@ export const SidebarStatsSection = () => {
                 </StatsButton>
             </HeaderContainer>
             {/* Dataset Profile Entry */}
-            <StatsRow>
-                {latestProfile?.rowCount ? (
-                    <InfoItem
-                        title="Rows"
-                        onClick={() => routeToTab({ tabName: 'Queries' })}
-                        width={INFO_ITEM_WIDTH_PX}
-                    >
-                        <HeaderInfoBody>{latestProfile?.rowCount}</HeaderInfoBody>
-                    </InfoItem>
-                ) : null}
-                {latestProfile?.columnCount ? (
-                    <InfoItem title="Columns" width={INFO_ITEM_WIDTH_PX}>
-                        <HeaderInfoBody>{latestProfile?.columnCount}</HeaderInfoBody>
-                    </InfoItem>
-                ) : null}
-            </StatsRow>
+            {hasLatestProfiles && (
+                <StatsRow>
+                    {latestProfile?.rowCount ? (
+                        <InfoItem
+                            title="Rows"
+                            onClick={() => routeToTab({ tabName: 'Queries' })}
+                            width={INFO_ITEM_WIDTH_PX}
+                        >
+                            <HeaderInfoBody>{formatNumberWithoutAbbreviation(latestProfile?.rowCount)}</HeaderInfoBody>
+                        </InfoItem>
+                    ) : null}
+                    {latestProfile?.columnCount ? (
+                        <InfoItem title="Columns" width={INFO_ITEM_WIDTH_PX}>
+                            <HeaderInfoBody>{latestProfile?.columnCount}</HeaderInfoBody>
+                        </InfoItem>
+                    ) : null}
+                </StatsRow>
+            )}
             {/* Usage Stats Entry */}
-            <StatsRow>
-                {usageStats?.aggregations?.totalSqlQueries ? (
+            {hasUsageStatsAggregations && (
+                <StatsRow>
+                    {usageStats?.aggregations?.totalSqlQueries ? (
+                        <InfoItem
+                            title="Monthly Queries"
+                            onClick={() => routeToTab({ tabName: 'Queries' })}
+                            width={INFO_ITEM_WIDTH_PX}
+                        >
+                            <HeaderInfoBody>{usageStats?.aggregations?.totalSqlQueries}</HeaderInfoBody>
+                        </InfoItem>
+                    ) : null}
+                    {(usageStats?.aggregations?.users?.length || 0) > 0 ? (
+                        <InfoItem title="Top Users" width={INFO_ITEM_WIDTH_PX}>
+                            <UsageFacepile users={usageStats?.aggregations?.users} maxNumberDisplayed={10} />
+                        </InfoItem>
+                    ) : null}
+                </StatsRow>
+            )}
+            {/* Operation Entry */}
+            {hasLatestOperation ? (
+                <StatsRow>
                     <InfoItem
-                        title="Monthly Queries"
+                        title="Last Updated"
                         onClick={() => routeToTab({ tabName: 'Queries' })}
-                        width={INFO_ITEM_WIDTH_PX}
+                        width={LAST_UPDATED_WIDTH_PX}
                     >
-                        <HeaderInfoBody>{usageStats?.aggregations?.totalSqlQueries}</HeaderInfoBody>
+                        <HeaderInfoBody>{lastUpdatedTime}</HeaderInfoBody>
                     </InfoItem>
-                ) : null}
-                {(usageStats?.aggregations?.users?.length || 0) > 0 ? (
-                    <InfoItem title="Top Users" width={INFO_ITEM_WIDTH_PX}>
-                        <UsageFacepile users={usageStats?.aggregations?.users} />
-                    </InfoItem>
-                ) : null}
-            </StatsRow>
+                </StatsRow>
+            ) : null}
         </div>
     );
 };

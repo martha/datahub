@@ -1,16 +1,20 @@
-import { Typography } from 'antd';
+import { Tooltip, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-import { Maybe, UserUsageCounts } from '../../../../../../../types.generated';
-import UsageFacepile from '../../../../../dataset/profile/UsageFacepile';
+import { CorpUser, Maybe, UserUsageCounts } from '../../../../../../../types.generated';
 import { InfoItem } from '../../../../components/styled/InfoItem';
 import { ANTD_GRAY } from '../../../../constants';
+import { countFormatter } from '../../../../../../../utils/formatter/index';
+import { ExpandedActorGroup } from '../../../../components/styled/ExpandedActorGroup';
+import { formatNumberWithoutAbbreviation } from '../../../../../../shared/formatNumber';
 
 type Props = {
     rowCount?: number;
     columnCount?: number;
     queryCount?: number;
     users?: Array<Maybe<UserUsageCounts>>;
+    lastUpdatedTime?: string;
+    lastReportedTime?: string;
 };
 
 const StatSection = styled.div`
@@ -26,19 +30,39 @@ const StatContainer = styled.div<{ justifyContent }>`
     padding: 12px 2px;
 `;
 
-export default function TableStats({ rowCount, columnCount, queryCount, users }: Props) {
+export default function TableStats({
+    rowCount,
+    columnCount,
+    queryCount,
+    users,
+    lastUpdatedTime,
+    lastReportedTime,
+}: Props) {
     // If there are less than 4 items, simply stack the stat views.
     const justifyContent = !queryCount && !users ? 'default' : 'space-between';
-
+    const lastReportedTimeString = lastReportedTime || 'unknown';
+    if (
+        !rowCount &&
+        !columnCount &&
+        !queryCount &&
+        !(users && users.length > 0) &&
+        !lastUpdatedTime &&
+        !lastReportedTime
+    ) {
+        return null;
+    }
+    const sortedUsers = users?.slice().sort((a, b) => (b?.count || 0) - (a?.count || 0));
     return (
         <StatSection>
             <Typography.Title level={5}>Table Stats</Typography.Title>
             <StatContainer justifyContent={justifyContent}>
                 {rowCount && (
                     <InfoItem title="Rows">
-                        <Typography.Text strong style={{ fontSize: 24 }}>
-                            {rowCount}
-                        </Typography.Text>
+                        <Tooltip title={formatNumberWithoutAbbreviation(rowCount)} placement="right">
+                            <Typography.Text strong style={{ fontSize: 24 }} data-testid="table-stats-rowcount">
+                                {countFormatter(rowCount)}
+                            </Typography.Text>
+                        </Tooltip>
                     </InfoItem>
                 )}
                 {columnCount && (
@@ -55,11 +79,30 @@ export default function TableStats({ rowCount, columnCount, queryCount, users }:
                         </Typography.Text>
                     </InfoItem>
                 )}
-                {users && (
+                {sortedUsers && sortedUsers.length > 0 && (
                     <InfoItem title="Top Users">
                         <div style={{ paddingTop: 8 }}>
-                            <UsageFacepile users={users} />
+                            <ExpandedActorGroup
+                                containerStyle={{
+                                    justifyContent: 'left',
+                                }}
+                                actors={
+                                    sortedUsers
+                                        .filter((user) => user && user?.user !== undefined && user?.user !== null)
+                                        .map((user) => user?.user as CorpUser) || []
+                                }
+                                max={4}
+                            />
                         </div>
+                    </InfoItem>
+                )}
+                {lastUpdatedTime && (
+                    <InfoItem title="Last Updated" width="220px">
+                        <Tooltip title={`Last reported at ${lastReportedTimeString}`}>
+                            <Typography.Text strong style={{ fontSize: 16 }}>
+                                {lastUpdatedTime}
+                            </Typography.Text>
+                        </Tooltip>
                     </InfoItem>
                 )}
             </StatContainer>

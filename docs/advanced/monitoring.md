@@ -55,7 +55,7 @@ In the JVM dashboard, you can find detailed charts based on JVM metrics like CPU
 dashboard, you can find charts to monitor each endpoint and the kafka topics. Using the example implementation, go
 to http://localhost:3001 to find the grafana dashboards! (Username: admin, PW: admin)
 
-To make it easy to track various metrics within the code base, we created MetricsUtil class. This util class creates a
+To make it easy to track various metrics within the code base, we created MetricUtils class. This util class creates a
 central metric registry, sets up the JMX reporter, and provides convenient functions for setting up counters and timers.
 You can run the following to create a counter and increment.
 
@@ -74,7 +74,7 @@ try(Timer.Context ignored=MetricUtils.timer(this.getClass(),"timerName").timer()
 ## Enable monitoring through docker-compose
 
 We provide some example configuration for enabling monitoring in
-this [directory](https://github.com/linkedin/datahub/tree/master/docker/monitoring). Take a look at the docker-compose
+this [directory](https://github.com/datahub-project/datahub/tree/master/docker/monitoring). Take a look at the docker-compose
 files, which adds necessary env variables to existing containers, and spawns new containers (Jaeger, Prometheus,
 Grafana).
 
@@ -95,3 +95,7 @@ docker-compose -p datahub \
 We set up quickstart.sh, dev.sh, and dev-without-neo4j.sh to add the above docker-compose when MONITORING=true. For
 instance `MONITORING=true ./docker/quickstart.sh` will add the correct env variables to start collecting traces and
 metrics, and also deploy Jaeger, Prometheus, and Grafana. We will soon support this as a flag during quickstart. 
+
+## Health check endpoint
+
+For monitoring healthiness of your DataHub service, `/admin` endpoint can be used.

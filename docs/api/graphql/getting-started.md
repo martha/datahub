@@ -1,78 +1,156 @@
-# Getting Started
+# Getting Started With GraphQL
 
-### Get your feet wet with the DataHub GraphQL API
+## Reading an Entity: Queries
 
-## Introduction to GraphQL 
+DataHub provides the following `graphql` queries for retrieving entities in your Metadata Graph.
 
-The GraphQL community provides many freely available resources for learning about GraphQL. We recommend starting with [Introduction to GraphQL](https://graphql.org/learn/),
-which will introduce you to key concepts like [Queries, Mutations, Variables, Schemas & more](https://graphql.org/learn/queries/). 
+### Query
 
-We'll reiterate a few important points before proceeding:
+The following `graphql` query retrieves the `urn` and `name` of the `properties` of a specific dataset
 
-- GraphQL Operations are exposed via a single service endpoint, in the case of DataHub located at `/api/graphql`. This will be described in more detail below. 
-- GraphQL supports reads using a top-level **Query** object, and writes using a top-level **Mutation** object.
-- GraphQL supports [schema introspection](https://graphql.org/learn/introspection/), wherein clients can query for details about the GraphQL schema itself.
+```json
+{
+  dataset(urn: "urn:li:dataset:(urn:li:dataPlatform:kafka,SampleKafkaDataset,PROD)") {
+    urn
+    properties {
+        name
+    }
+  }
+}
+```
 
-## Setup
+In addition to the URN and properties, you can also fetch other types of metadata for an asset, such as owners, tags, domains, and terms of an entity.
+For more information on, please refer to the following links."
 
-The first thing you'll need to use the GraphQL API is a deployed instance of DataHub with some metadata ingested. Unsure how to do that? Check out the [Deployment Quickstart](../../../docs/quickstart.md).
+- [Querying for Owners of a Dataset](/docs/api/tutorials/owners.md#read-owners)
+- [Querying for Tags of a Dataset](/docs/api/tutorials/tags.md#read-tags)
+- [Querying for Domain of a Dataset](/docs/api/tutorials/domains.md#read-domains)
+- [Querying for Glossary Terms of a Dataset](/docs/api/tutorials/terms.md#read-terms)
+- [Querying for Deprecation of a dataset](/docs/api/tutorials/deprecation.md#read-deprecation)
+- [Querying for all DataJobs that belong to a DataFlow](/docs/lineage/airflow.md#get-all-datajobs-associated-with-a-dataflow)
 
+### Search
 
-## The DataHub GraphQL Endpoint 
+To perform full-text search against an Entity of a particular type, use the search(input: `SearchInput!`) `graphql` Query.
+The following `graphql` query searches for datasets that match a specific query term.
 
-Today, DataHub's GraphQL endpoint is available for use in multiple places. The one you choose to use depends on your specific use case. 
+```json
+{
+  search(input: { type: DATASET, query: "my sql dataset", start: 0, count: 10 }) {
+    start
+    count
+    total
+    searchResults {
+      entity {
+         urn
+         type
+         ...on Dataset {
+            name
+         }
+      }
+    }
+  }
+}
+```
 
-1. **Metadata Service**: The DataHub Metadata Service (backend) is the source-of-truth for the GraphQL endpoint. The endpoint is located at `/api/graphql` path of the DNS address
-where your instance of the `datahub-gms` container is deployed. For example, in local deployments it is typically located at `http://localhost:8080/api/graphql`. By default,
-the Metadata Service has no explicit authentication checks. However, it does have *Authorization checks*. DataHub [Access Policies](../../../docs/policies.md) will be enforced by the GraphQL API. This means you'll need to provide an actor identity when querying the GraphQL API. 
-To do so, include the `X-DataHub-Actor` header with an Authorized Corp User URN as the value in your request. Because anyone is able to set the value of this header, we recommend using this endpoint only in trusted environments, either by administrators themselves or programs that they own directly. 
-   
-2. **Frontend Proxy**: The DataHub Frontend Proxy Service (frontend) is a basic web server & reverse proxy to the Metadata Service. As such, the 
-GraphQL endpoint is also available for query wherever the Frontend Proxy is deployed. In local deployments, this is typically `http://localhost:9002/api/graphql`. By default,
-the Frontend Proxy *does* have Session Cookie-based Authentication via the PLAY_SESSION cookie set at DataHub UI login time. This means
-that if a request does not have a valid PLAY_SESSION cookie obtained via logging into the DataHub UI, the request will be rejected. To use this API in an untrusted environment,
-you'd need to a) log into DataHub, b) extract the PLAY_SESSION cookie that is set on login, and c) provide this Cookie in your HTTP headers when
-calling the endpoint.
-   
+The `search` field is used to indicate that we want to perform a search.
+The `input` argument specifies the search criteria, including the type of entity being searched, the search query term, the start index of the search results, and the count of results to return.
 
-### Querying the Endpoint
+The `query` term is used to specify the search term.
+The search term can be a simple string, or it can be a more complex query using patterns.
 
-There are a few options when it comes to querying the GraphQL endpoint. The recommendation on which to use varies by use case.
+- `*` : Search for all entities.
+- `*[string]` : Search for all entities that contain aspects **starting with** the specified \[string\].
+- `[string]*` : Search for all entities that contain aspects **ending with** the specified \[string\].
+- `*[string]*` : Search for all entities that **match** aspects named \[string\].
+- `[string]` : Search for all entities that **contain** the specified \[string\].
 
-**Testing**: [Postman](https://learning.postman.com/docs/sending-requests/supported-api-frameworks/graphql/), GraphQL Explorer (described below), CURL
+:::note
+Note that by default Elasticsearch only allows pagination through 10,000 entities via the search API.
+If you need to paginate through more, you can change the default value for the `index.max_result_window` setting in Elasticsearch, or using the scroll API to read from the index directly.
+:::
 
-**Production**: GraphQL [Client SDK](https://graphql.org/code/) for the language of your choice, or a basic HTTP client.
-   
-> Important: The DataHub GraphQL endpoint only supports POST requests at this time. It does not support GET requests. If this is something
-> you need, let us know on Slack!
+## Modifying an Entity: Mutations
 
-### On the Horizon
+:::note
+Mutations which change Entity metadata are subject to [DataHub Access Policies](../../authorization/policies.md).
+This means that DataHub's server will check whether the requesting actor is authorized to perform the action.
+:::
 
-- **Service Access Tokens**: In the near future, the DataHub team intends to introduce service users, which will provide a way to generate and use API access
-tokens when querying both the Frontend Proxy Server and the Metadata Service. If you're interested in contributing, please [reach out on our Slack](https://datahubspace.slack.com/join/shared_invite/zt-nx7i0dj7-I3IJYC551vpnvvjIaNRRGw#/shared-invite/email).
-- **DataHub Client SDKs**: Libraries wrapping the DataHub GraphQL API on a per-language basis (based on community demand). 
+To update an existing Metadata Entity, simply use the `update<entityName>(urn: String!, input: EntityUpdateInput!)` GraphQL Query.
+For example, to update a Dashboard entity, you can issue the following GraphQL mutation:
 
-## GraphQL Explorer 
+```json
+mutation updateDashboard {
+    updateDashboard(
+        urn: "urn:li:dashboard:(looker,baz)",
+        input: {
+            editableProperties: {
+                description: "My new desription"
+            }
+        }
+    ) {
+        urn
+    }
+}
+```
 
-DataHub provides a browser-based GraphQL Explorer Tool ([GraphiQL](https://github.com/graphql/graphiql)) for live interaction with the GraphQL API. Today, this tool is available for use in multiple places (like the GraphQL endpoint itself):
+For more information, please refer to following links.
 
-1. **Metadata Service**: `http://<metadata-service-address>/api/graphiql`. For local deployments, `http://localhost:8080/api/graphiql`.
-2. **Frontend Proxy**: `http://<frontend-service-address>/api/graphiql`. For local deployments, `http://localhost:9002/api/graphiql`.
+- [Adding Tags](/docs/api/tutorials/tags.md#add-tags)
+- [Adding Glossary Terms](/docs/api/tutorials/terms.md#add-terms)
+- [Adding Domain](/docs/api/tutorials/domains.md#add-domains)
+- [Adding Owners](/docs/api/tutorials/owners.md#add-owners)
+- [Removing Tags](/docs/api/tutorials/tags.md#remove-tags)
+- [Removing Glossary Terms](/docs/api/tutorials/terms.md#remove-terms)
+- [Removing Domain](/docs/api/tutorials/domains.md#remove-domains)
+- [Removing Owners](/docs/api/tutorials/owners.md#remove-owners)
+- [Updating Deprecation](/docs/api/tutorials/deprecation.md#update-deprecation)
+- [Editing Description (i.e. Documentation) on Datasets](/docs/api/tutorials/descriptions.md#add-description-on-dataset)
+- [Editing Description (i.e. Documentation) on Columns](/docs/api/tutorials/descriptions.md#add-description-on-column)
+- [Soft Deleting](/docs/api/tutorials/datasets.md#delete-dataset)
 
-This interface allows you to easily craft queries and mutations against real metadata stored in your live DataHub deployment. For a detailed usage guide,
-check out [How to use GraphiQL](https://www.gatsbyjs.com/docs/how-to/querying-data/running-queries-with-graphiql/). 
+Please refer to [Datahub API Comparison](/docs/api/datahub-apis.md#datahub-api-comparison) to navigate to the use-case oriented guide.
 
-The same auth restrictions described in the section above apply to these endpoints as well. 
+## Handling Errors
 
-> **Pro Tip**: We recommend you add a browser extension that will allow you to set custom HTTP headers (ie. `Cookies` or `X-DataHub-Actor`) if you plan to use GraphiQL for testing. We like [ModHeader](https://chrome.google.com/webstore/detail/modheader/idgpnmonknjnojddfkpgkljpfnnfcklj?hl=en) for Google Chrome.
+In GraphQL, requests that have errors do not always result in a non-200 HTTP response body. Instead, errors will be
+present in the response body inside a top-level `errors` field.
 
-## Where to go from here
+This enables situations in which the client is able to deal gracefully will partial data returned by the application server.
+To verify that no error has returned after making a GraphQL request, make sure you check _both_ the `data` and `errors` fields that are returned.
 
-Once you've gotten the API deployed and responding, proceed to [Querying Entities](./querying-entities.md) to learn how to read and write the Entities
-on your Metadata Graph.
+To catch a GraphQL error, simply check the `errors` field side the GraphQL response. It will contain a message, a path, and a set of extensions
+which contain a standard error code.
 
+```json
+{
+  "errors": [
+    {
+      "message": "Failed to change ownership for resource urn:li:dataFlow:(airflow,dag_abc,PROD). Expected a corp user urn.",
+      "locations": [
+        {
+          "line": 1,
+          "column": 22
+        }
+      ],
+      "path": ["addOwners"],
+      "extensions": {
+        "code": 400,
+        "type": "BAD_REQUEST",
+        "classification": "DataFetchingException"
+      }
+    }
+  ]
+}
+```
 
-## Feedback, Feature Requests, & Support
+With the following error codes officially supported:
 
-Visit our [Slack channel](https://datahubspace.slack.com/join/shared_invite/zt-nx7i0dj7-I3IJYC551vpnvvjIaNRRGw#/shared-invite/email) to ask questions, tell us what we can do better, & make requests for what you'd like to see in the future. Or just
-stop by to say 'Hi'. 
+| Code | Type         | Description                                                                                   |
+| ---- | ------------ | --------------------------------------------------------------------------------------------- |
+| 400  | BAD_REQUEST  | The query or mutation was malformed.                                                          |
+| 403  | UNAUTHORIZED | The current actor is not authorized to perform the requested action.                          |
+| 404  | NOT_FOUND    | The resource is not found.                                                                    |
+| 500  | SERVER_ERROR | An internal error has occurred. Check your server logs or contact your DataHub administrator. |
+

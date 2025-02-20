@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { Tabs } from 'antd';
-import styled from 'styled-components';
+import styled from 'styled-components/macro';
 
 import { EntityTab } from '../../../types';
 import { useBaseEntity, useEntityData, useRouteToTab } from '../../../EntityContext';
@@ -25,29 +25,32 @@ const Tab = styled(Tabs.TabPane)`
 `;
 
 export const EntityTabs = <T,>({ tabs, selectedTab }: Props) => {
-    const { entityData } = useEntityData();
+    const { entityData, loading } = useEntityData();
     const routeToTab = useRouteToTab();
     const baseEntity = useBaseEntity<T>();
 
+    const enabledTabs = tabs.filter((tab) => tab.display?.enabled(entityData, baseEntity));
+
     useEffect(() => {
-        if (!selectedTab) {
-            if (tabs[0]) {
-                routeToTab({ tabName: tabs[0].name, method: 'replace' });
-            }
+        if (!loading && !selectedTab && enabledTabs[0]) {
+            routeToTab({ tabName: enabledTabs[0].name, method: 'replace' });
         }
-    }, [tabs, selectedTab, routeToTab]);
+    }, [loading, enabledTabs, selectedTab, routeToTab]);
 
     return (
         <UnborderedTabs
-            activeKey={selectedTab?.name}
+            data-testid="entity-tab-headers-test-id"
+            animated={false}
+            activeKey={selectedTab?.name || ''}
             size="large"
             onTabClick={(tab: string) => routeToTab({ tabName: tab })}
         >
             {tabs.map((tab) => {
-                if (tab.shouldHide?.(entityData, baseEntity) === true) {
-                    return <Tab tab={tab.name} key={tab.name} disabled />;
+                const tabName = (tab.getDynamicName && tab.getDynamicName(entityData, baseEntity)) || tab.name;
+                if (!tab.display?.enabled(entityData, baseEntity)) {
+                    return <Tab tab={tabName} key={tab.name} disabled />;
                 }
-                return <Tab tab={tab.name} key={tab.name} />;
+                return <Tab tab={tabName} key={tab.name} />;
             })}
         </UnborderedTabs>
     );

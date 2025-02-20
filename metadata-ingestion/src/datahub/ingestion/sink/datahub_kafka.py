@@ -3,13 +3,12 @@ from typing import Optional, Union
 
 from datahub.emitter.kafka_emitter import DatahubKafkaEmitter, KafkaEmitterConfig
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.ingestion.api.common import PipelineContext, RecordEnvelope, WorkUnit
+from datahub.ingestion.api.common import RecordEnvelope, WorkUnit
 from datahub.ingestion.api.sink import Sink, SinkReport, WriteCallback
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
     MetadataChangeEvent,
     MetadataChangeProposal,
 )
-from datahub.metadata.schema_classes import MetadataChangeProposalClass
 
 
 class KafkaSinkConfig(KafkaEmitterConfig):
@@ -35,22 +34,11 @@ class _KafkaCallback:
             self.write_callback.on_success(self.record_envelope, {"msg": msg})
 
 
-@dataclass
-class DatahubKafkaSink(Sink):
-    config: KafkaSinkConfig
-    report: SinkReport
+class DatahubKafkaSink(Sink[KafkaSinkConfig, SinkReport]):
     emitter: DatahubKafkaEmitter
 
-    def __init__(self, config: KafkaSinkConfig, ctx: PipelineContext):
-        super().__init__(ctx)
-        self.config = config
-        self.report = SinkReport()
+    def __post_init__(self):
         self.emitter = DatahubKafkaEmitter(self.config)
-
-    @classmethod
-    def create(cls, config_dict: dict, ctx: PipelineContext) -> "DatahubKafkaSink":
-        config = KafkaSinkConfig.parse_obj(config_dict)
-        return cls(config, ctx)
 
     def handle_work_unit_start(self, workunit: WorkUnit) -> None:
         pass
@@ -69,30 +57,21 @@ class DatahubKafkaSink(Sink):
         ],
         write_callback: WriteCallback,
     ) -> None:
-        record = record_envelope.record
-        if isinstance(record, MetadataChangeEvent):
-            self.emitter.emit_mce_async(
+        callback = _KafkaCallback(
+            self.report, record_envelope, write_callback
+        ).kafka_callback
+        try:
+            record = record_envelope.record
+            self.emitter.emit(
                 record,
-                callback=_KafkaCallback(
-                    self.report, record_envelope, write_callback
-                ).kafka_callback,
+                callback=callback,
             )
-        elif isinstance(record, MetadataChangeProposalWrapper) or isinstance(
-            record, MetadataChangeProposalClass
-        ):
-            self.emitter.emit_mcp_async(
-                record,
-                callback=_KafkaCallback(
-                    self.report, record_envelope, write_callback
-                ).kafka_callback,
-            )
-        else:
-            raise ValueError(
-                f"The datahub-kafka sink only supports MetadataChangeEvent/MetadataChangeProposal[Wrapper] classes, not {type(record)}"
-            )
-
-    def get_report(self):
-        return self.report
+        except Exception as err:
+            # In case we throw an exception while trying to emit the record,
+            # catch it and report the failure. This might happen if the schema
+            # registry is down or otherwise misconfigured, in which case we'd
+            # fail when serializing the record.
+            callback(err, f"Failed to write record: {err}")
 
     def close(self) -> None:
         self.emitter.flush()

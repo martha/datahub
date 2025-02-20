@@ -1,14 +1,28 @@
+import { GenericEntityProperties } from '@app/entity/shared/types';
+import { FullLineageResultsFragment } from '../../graphql/lineage.generated';
 import {
     Chart,
     Dashboard,
     DataJob,
+    DataPlatform,
     Dataset,
+    Entity,
     EntityType,
-    MlFeatureTable,
-    MlPrimaryKey,
+    FineGrainedLineage,
+    Health,
+    InputFields,
+    LineageRelationship,
+    Maybe,
     MlFeature,
+    MlFeatureTable,
     MlModel,
     MlModelGroup,
+    MlPrimaryKey,
+    SchemaMetadata,
+    ScrollResults,
+    SiblingProperties,
+    Status,
+    StructuredProperties,
 } from '../../types.generated';
 
 export type EntitySelectParams = {
@@ -25,29 +39,89 @@ export type LineageExpandParams = {
 export type FetchedEntity = {
     urn: string;
     name: string;
+    // name to be shown on expansion if available
+    expandedName?: string;
     type: EntityType;
+    subtype?: string;
     icon?: string;
+    siblingIcon?: string;
     // children?: Array<string>;
-    upstreamChildren?: Array<string>;
-    downstreamChildren?: Array<string>;
+    upstreamChildren?: Array<EntityAndType>;
+    upstreamRelationships?: Array<LineageRelationship>;
+    numUpstreamChildren?: number;
+    downstreamChildren?: Array<EntityAndType>;
+    downstreamRelationships?: Array<LineageRelationship>;
+    numDownstreamChildren?: number;
     fullyFetched?: boolean;
-    platform?: string;
+    platform?: DataPlatform;
+    status?: Maybe<Status>;
+    siblingPlatforms?: Maybe<DataPlatform[]>;
+    fineGrainedLineages?: FineGrainedLineage[];
+    siblings?: Maybe<SiblingProperties>;
+    siblingsSearch?: Maybe<ScrollResults>;
+    schemaMetadata?: SchemaMetadata;
+    inputFields?: InputFields;
+    canEditLineage?: boolean;
+    health?: Maybe<Health[]>;
+    structuredProperties?: Maybe<StructuredProperties>;
+    parents?: GenericEntityProperties[];
+    parent?: GenericEntityProperties;
 };
 
 export type NodeData = {
     urn?: string;
     name: string;
+    // name to be shown on expansion if available
+    expandedName?: string;
     type?: EntityType;
+    subtype?: string;
     children?: Array<NodeData>;
     unexploredChildren?: number;
     icon?: string;
     // Hidden children are unexplored but in the opposite direction of the flow of the graph.
     // Currently our visualization does not support expanding in two directions
     countercurrentChildrenUrns?: string[];
-    platform?: string;
+    platform?: DataPlatform;
+    status?: Maybe<Status>;
+    siblingPlatforms?: Maybe<DataPlatform[]>;
+    schemaMetadata?: SchemaMetadata;
+    inputFields?: InputFields;
+    canEditLineage?: boolean;
+    upstreamRelationships?: Array<LineageRelationship>;
+    downstreamRelationships?: Array<LineageRelationship>;
+    health?: Maybe<Health[]>;
+    structuredProperties?: Maybe<StructuredProperties>;
+    siblingStructuredProperties?: Maybe<StructuredProperties>;
 };
 
-export type FetchedEntities = { [x: string]: FetchedEntity };
+export type VizNode = {
+    x: number;
+    y: number;
+    data: NodeData;
+    direction: Direction;
+};
+
+export type VizEdge = {
+    source: VizNode;
+    target: VizNode;
+    curve: { x: number; y: number }[];
+    sourceField?: string;
+    targetField?: string;
+    createdOn?: Maybe<number>;
+    createdActor?: Maybe<Entity>;
+    updatedOn?: Maybe<number>;
+    updatedActor?: Maybe<Entity>;
+    isManual?: boolean;
+};
+
+export type ColumnEdge = {
+    sourceUrn: string;
+    sourceField: string;
+    targetUrn: string;
+    targetField: string;
+};
+
+export type FetchedEntities = Map<string, FetchedEntity>;
 
 export enum Direction {
     Upstream = 'Upstream',
@@ -62,12 +136,13 @@ export type LineageExplorerParams = {
 export type TreeProps = {
     margin?: { top: number; right: number; bottom: number; left: number };
     entityAndType?: EntityAndType | null;
-    fetchedEntities: { [x: string]: FetchedEntity };
+    fetchedEntities: Map<string, FetchedEntity>;
     onEntityClick: (EntitySelectParams) => void;
     onEntityCenter: (EntitySelectParams) => void;
-    onLineageExpand: (LineageExpandParams) => void;
+    onLineageExpand: (data: EntityAndType) => void;
     selectedEntity?: EntitySelectParams;
     hoveredEntity?: EntitySelectParams;
+    fineGrainedMap?: any;
 };
 
 export type EntityAndType =
@@ -107,3 +182,19 @@ export type EntityAndType =
           type: EntityType.MlprimaryKey;
           entity: MlPrimaryKey;
       };
+
+export interface LineageResult {
+    urn: string;
+    upstream?: Maybe<{ __typename?: 'EntityLineageResult' } & FullLineageResultsFragment>;
+    downstream?: Maybe<{ __typename?: 'EntityLineageResult' } & FullLineageResultsFragment>;
+}
+
+export interface UpdatedLineages {
+    [urn: string]: UpdatedLineage;
+}
+
+export interface UpdatedLineage {
+    lineageDirection: Direction;
+    entitiesToAdd: Entity[];
+    urnsToRemove: string[];
+}

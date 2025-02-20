@@ -1,41 +1,58 @@
-import React from 'react';
-import { Switch, Route } from 'react-router-dom';
+import React, { useEffect } from 'react';
+import { Switch, Route, useLocation, useHistory } from 'react-router-dom';
 import { Layout } from 'antd';
-import { BrowseResultsPage } from './browse/BrowseResultsPage';
-import { EntityPage } from './entity/EntityPage';
-import { PageRoutes } from '../conf/Global';
-import { useEntityRegistry } from './useEntityRegistry';
+import styled from 'styled-components';
+import DataHubTitle from './DataHubTitle';
 import { HomePage } from './home/HomePage';
-import { SearchPage } from './search/SearchPage';
-import { AnalyticsPage } from './analyticsDashboard/components/AnalyticsPage';
-import { PoliciesPage } from './policy/PoliciesPage';
-import AppConfigProvider from '../AppConfigProvider';
+import { HomePage as HomePageV2 } from './homeV2/HomePage';
+import { SearchRoutes } from './SearchRoutes';
+import EmbedRoutes from './EmbedRoutes';
+import { NEW_ROUTE_MAP, PageRoutes } from '../conf/Global';
+import { useIsThemeV2, useSetThemeIsV2 } from './useIsThemeV2';
+import { getRedirectUrl } from '../conf/utils';
+import { IntroduceYourself } from './homeV2/introduce/IntroduceYourself';
+import { useSetUserTitle } from './identity/user/useUserTitle';
+import { useSetUserPersona } from './homeV2/persona/useUserPersona';
+import { useSetNavBarRedesignEnabled } from './useShowNavBarRedesign';
+import { OnboardingContextProvider } from './onboarding/OnboardingContextProvider';
+
+const StyledLayout = styled(Layout)`
+    background-color: transparent;
+`;
 
 /**
  * Container for all views behind an authentication wall.
  */
 export const ProtectedRoutes = (): JSX.Element => {
-    const entityRegistry = useEntityRegistry();
+    useSetThemeIsV2();
+    useSetUserPersona();
+    useSetUserTitle();
+    useSetNavBarRedesignEnabled();
+
+    const isThemeV2 = useIsThemeV2();
+    const FinalHomePage = isThemeV2 ? HomePageV2 : HomePage;
+
+    const location = useLocation();
+    const history = useHistory();
+
+    useEffect(() => {
+        if (location.pathname.indexOf('/Validation') !== -1) {
+            history.replace(getRedirectUrl(NEW_ROUTE_MAP));
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [location]);
+
     return (
-        <AppConfigProvider>
-            <Layout style={{ height: '100%', width: '100%' }}>
-                <Layout>
-                    <Switch>
-                        <Route exact path="/" render={() => <HomePage />} />
-                        {entityRegistry.getEntities().map((entity) => (
-                            <Route
-                                key={entity.getPathName()}
-                                path={`/${entity.getPathName()}/:urn`}
-                                render={() => <EntityPage entityType={entity.type} />}
-                            />
-                        ))}
-                        <Route path={PageRoutes.SEARCH_RESULTS} render={() => <SearchPage />} />
-                        <Route path={PageRoutes.BROWSE_RESULTS} render={() => <BrowseResultsPage />} />
-                        <Route path={PageRoutes.ANALYTICS} render={() => <AnalyticsPage />} />
-                        <Route path={PageRoutes.POLICIES} render={() => <PoliciesPage />} />
-                    </Switch>
-                </Layout>
-            </Layout>
-        </AppConfigProvider>
+        <OnboardingContextProvider>
+            <DataHubTitle />
+            <StyledLayout className={isThemeV2 ? 'themeV2' : undefined}>
+                <Switch>
+                    <Route exact path="/" render={() => <FinalHomePage />} />
+                    <Route path={PageRoutes.EMBED} render={() => <EmbedRoutes />} />
+                    <Route exact path={PageRoutes.INTRODUCE} render={() => <IntroduceYourself />} />
+                    <Route path="/*" component={SearchRoutes} />
+                </Switch>
+            </StyledLayout>
+        </OnboardingContextProvider>
     );
 };

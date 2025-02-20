@@ -1,29 +1,52 @@
-apply plugin: 'java'
+plugins {
+  id 'java-library'
+  id 'pegasus'
+}
+
+apply from: '../gradle/coverage/java-coverage.gradle'
 
 dependencies {
-  compile externalDependency.avro_1_7
-  compile externalDependency.commonsLang
-  compile externalDependency.dropwizardMetricsCore
-  compile externalDependency.dropwizardMetricsJmx
-  compile externalDependency.elasticSearchRest
-  compile externalDependency.gmaDaoApi
-  compile externalDependency.gmaDaoApiDataTemplate
-  compile externalDependency.httpClient
-  compile externalDependency.neo4jJavaDriver
+  api externalDependency.avro
+  implementation externalDependency.commonsLang
+  api externalDependency.dropwizardMetricsCore
+  implementation externalDependency.dropwizardMetricsJmx
+  implementation externalDependency.opentelemetrySdk
+  api externalDependency.elasticSearchRest
+  implementation externalDependency.httpClient
+  api externalDependency.neo4jJavaDriver
+  api externalDependency.json
 
-  compile spec.product.pegasus.restliClient
-  compile spec.product.pegasus.restliCommon
-  compile spec.product.pegasus.restliServer
+  implementation spec.product.pegasus.restliClient
+  implementation spec.product.pegasus.restliCommon
+  implementation spec.product.pegasus.restliServer
 
-  compile project(':li-utils')
-  compile project(':entity-registry')
-  compile project(':metadata-events:mxe-avro-1.7')
-  compile project(':metadata-events:mxe-utils-avro-1.7')
+  api project(':li-utils')
+  api project(':entity-registry')
+  api project(':metadata-events:mxe-avro')
+  api project(':metadata-events:mxe-utils-avro')
 
+  implementation externalDependency.slf4jApi
   compileOnly externalDependency.lombok
+  runtimeOnly externalDependency.javaxMail
 
   annotationProcessor externalDependency.lombok
 
-  testCompile project(':test-models')
-  testCompile project(':metadata-testing:metadata-test-utils')
+  testImplementation project(':test-models')
+  testImplementation project(path: ':test-models', configuration: 'testDataTemplate')
+  testImplementation externalDependency.testng
+  testImplementation project(':metadata-operation-context')
+
+  constraints {
+      implementation(externalDependency.log4jCore) {
+          because("previous versions are vulnerable to CVE-2021-45105")
+      }
+      implementation(externalDependency.log4jApi) {
+        because("previous versions are vulnerable to CVE-2021-45105")
+    }
+    implementation(externalDependency.javaxMail) {
+      because("previous versions are vulnerable")
+    }
+  }
+  implementation externalDependency.logbackClassic
+
 }

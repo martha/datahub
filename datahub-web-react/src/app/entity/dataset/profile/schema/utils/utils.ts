@@ -37,7 +37,7 @@ export function convertEditableSchemaMetadataForUpdate(
 ): EditableSchemaMetadataUpdate {
     return {
         editableSchemaFieldInfo:
-            editableSchemaMetadata?.editableSchemaFieldInfo.map((editableSchemaFieldInfo) => ({
+            editableSchemaMetadata?.editableSchemaFieldInfo?.map((editableSchemaFieldInfo) => ({
                 fieldPath: editableSchemaFieldInfo?.fieldPath,
                 description: editableSchemaFieldInfo?.description,
                 globalTags: { tags: convertTagsForUpdate(editableSchemaFieldInfo?.globalTags?.tags || []) },
@@ -121,6 +121,7 @@ export function groupByFieldPath(
         // if the parent field exists in the ouput, add the current row as a child
         if (parentRow) {
             row.depth = (parentRow.depth || 0) + 1;
+            row.parent = parentRow;
             parentRow.children = [...(parentRow.children || []), row];
         } else {
             outputRows.push(row);

@@ -1,4 +1,3 @@
-import { AvatarSize } from 'antd/lib/avatar/SizeContext';
 import React from 'react';
 import { EntityType, Owner } from '../../../types.generated';
 import CustomAvatar from './CustomAvatar';
@@ -9,7 +8,7 @@ type Props = {
     owners?: Array<Owner> | null;
     entityRegistry: EntityRegistry;
     maxCount?: number;
-    size?: AvatarSize;
+    size?: number;
 };
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -24,19 +23,20 @@ export default function AvatarsGroup({ owners, entityRegistry, maxCount = 6, siz
                 <div data-testid={`avatar-tag-${owner.owner.urn}`} key={`${owner.owner.urn}-${key}`}>
                     {owner.owner.__typename === 'CorpUser' ? (
                         <CustomAvatar
-                            name={
-                                owner.owner.info?.fullName ||
-                                owner.owner.info?.firstName ||
-                                owner.owner.info?.email ||
-                                owner.owner.username
-                            }
+                            size={size}
+                            name={entityRegistry.getDisplayName(EntityType.CorpUser, owner.owner)}
                             url={`/${entityRegistry.getPathName(owner.owner.type)}/${owner.owner.urn}`}
-                            photoUrl={owner.owner?.editableInfo?.pictureLink || undefined}
+                            photoUrl={
+                                owner.owner?.editableProperties?.pictureLink ||
+                                owner.owner?.editableInfo?.pictureLink ||
+                                undefined
+                            }
                         />
                     ) : (
                         owner.owner.__typename === 'CorpGroup' && (
                             <CustomAvatar
-                                name={owner.owner.name}
+                                size={size || 28}
+                                name={entityRegistry.getDisplayName(EntityType.CorpGroup, owner.owner)}
                                 url={`/${entityRegistry.getPathName(owner.owner.type || EntityType.CorpGroup)}/${
                                     owner.owner.urn
                                 }`}
